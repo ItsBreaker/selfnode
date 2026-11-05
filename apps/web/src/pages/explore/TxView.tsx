@@ -20,19 +20,36 @@ export function TxView() {
   const client = usePublicClient();
   const routeKey = useRouteKey();
   const valid = isHex(hash) && hash.length === 66;
-  const q = useQuery({
+  // Progressive: the transaction renders as soon as it arrives; receipt, block time and logs fill in after.
+  const txq = useQuery({
     enabled: valid,
     queryKey: ["tx", routeKey, hash],
     retry: false,
+    queryFn: () => client.getTransaction({ hash: hash as Hex }),
+  });
+  const rq = useQuery({
+    enabled: valid,
+    queryKey: ["receipt", routeKey, hash],
+    retry: false,
     queryFn: async () => {
-      const [tx, receipt] = await Promise.all([
-        client.getTransaction({ hash: hash as Hex }),
-        client.getTransactionReceipt({ hash: hash as Hex }).catch(() => null),
-      ]);
+      const receipt = await client.getTransactionReceipt({ hash: hash as Hex }).catch(() => null);
       const block = receipt ? await client.getBlock({ blockNumber: receipt.blockNumber }) : null;
-      return { tx, receipt, block };
+      return { receipt, block };
     },
   });
+  const q = {
+    isPending: txq.isPending,
+    isError: txq.isError,
+    error: txq.error,
+    data: txq.data
+      ? {
+          tx: txq.data,
+          receipt: rq.data?.receipt ?? null,
+          block: rq.data?.block ?? null,
+          receiptPending: rq.isPending,
+        }
+      : undefined,
+  };
 
   if (!valid)
     return (
@@ -47,9 +64,9 @@ export function TxView() {
         <p className="flex items-center gap-1 break-all font-mono text-small text-muted">
           {hash} <CopyButton value={hash} label="Copy hash" />
         </p>
-        {q.isPending ? (
+        {!q.data && !q.isError ? (
           <Skeleton className="h-48 w-full" />
-        ) : q.isError ? (
+        ) : !q.data ? (
           <Callout
             tone="danger"
             title={`Couldn't find this transaction on ${chains[settings.chain].name}`}
@@ -141,7 +158,13 @@ export function TxView() {
                 </details>
               )}
             </Panel>
-            {q.data.receipt && <Logs logs={q.data.receipt.logs} />}
+            {q.data.receiptPending ? (
+              <Panel title="Logs">
+                <Skeleton className="h-12 w-full" />
+              </Panel>
+            ) : (
+              q.data.receipt && <Logs logs={q.data.receipt.logs} />
+            )}
           </>
         )}
       </div>
