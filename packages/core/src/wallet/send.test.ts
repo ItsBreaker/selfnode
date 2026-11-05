@@ -89,11 +89,18 @@ describe("assessSend", () => {
     const flagged = assessSend(
       eth(1n),
       facts({
-        recipientLabel: { name: "Fake Uniswap", category: "phish-hack", source: "test fixture" },
+        recipientLabel: {
+          name: "Flagged by MyEtherWallet's list",
+          category: "flagged",
+          source: "test fixture",
+          note: "Fake airdrop",
+        },
       }),
     );
     expect(flagged.preview.needsAcknowledgement).toBe(true);
-    expect(flagged.preview.warnings[0]?.message).toContain("Fake Uniswap");
+    expect(flagged.preview.warnings[0]?.message).toContain("Flagged by MyEtherWallet's list");
+    expect(flagged.preview.warnings[0]?.message).toContain("Lists can include mistakes");
+    expect(flagged.preview.canSend).toBe(true); // the user decides
   });
 
   it("notes contract recipients for ETH and brand-new addresses", () => {

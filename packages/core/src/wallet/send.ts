@@ -37,6 +37,10 @@ export interface RecipientLabel {
   name: string;
   category?: string;
   source: string;
+  /** Detail from the source, e.g. a scam-list comment. */
+  note?: string;
+  /** Link to the exact source revision. */
+  url?: string;
 }
 
 export interface SendFacts {
@@ -133,13 +137,12 @@ export function assessSend(
       `This is the ${symbol} token contract itself. Tokens sent to it are almost always lost.`,
     );
   }
-  if (
-    facts.recipientLabel?.category &&
-    FLAGGED_CATEGORIES.has(facts.recipientLabel.category.toLowerCase())
-  ) {
+  const lbl = facts.recipientLabel;
+  if (lbl?.category && FLAGGED_CATEGORIES.has(lbl.category.toLowerCase())) {
+    // Never a flat "scam": say who flagged it and leave the decision to the user.
     w(
       "danger",
-      `This address is labelled "${facts.recipientLabel.name}" (${facts.recipientLabel.category}) by ${facts.recipientLabel.source}.`,
+      `${lbl.name}${lbl.note ? `: "${lbl.note}"` : ""}. Lists can include mistakes, so check this address yourself before sending.`,
     );
   }
   if (!facts.simulation.ok) w("danger", `Simulation failed: ${facts.simulation.reason}`, true);
