@@ -1,8 +1,8 @@
 // Cloudflare Worker serving the static build (no server code).
-// Placeholder name: change before the first deploy. Not deployed yet.
+// Must match the Worker's name in Cloudflare (Workers Builds checks this).
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "selfnode-web",
+  "name": "selfnode",
   "compatibility_date": "2026-11-01",
   "workers_dev": true,
   "assets": {
