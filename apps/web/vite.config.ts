@@ -1,4 +1,5 @@
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -29,9 +30,41 @@ function spikeResults(): Plugin {
   };
 }
 
+/**
+ * Self-host Anon-RPC's iframe bootstrap so the strict CSP needs no
+ * 'unsafe-inline' (the harness otherwise injects an inline srcdoc script).
+ * Served in dev and emitted in builds, straight from the pinned package.
+ */
+function anonRpcIframe(): Plugin {
+  const require = createRequire(import.meta.url);
+  const hostEntry = require.resolve("@anon-rpc/browser-harness");
+  const bootJs = () => readFileSync(new URL("./iframe-boot.js", `file://${hostEntry}`), "utf8");
+  const html =
+    '<!doctype html><meta charset="utf-8"><title>anon-rpc sandbox</title><script src="/anon-rpc-iframe.js"></script>\n';
+  return {
+    name: "selfnode-anon-rpc-iframe",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url === "/anon-rpc-iframe.html")
+          return void res.setHeader("content-type", "text/html").end(html);
+        if (req.url === "/anon-rpc-iframe.js")
+          return void res.setHeader("content-type", "text/javascript").end(bootJs());
+        next();
+      });
+    },
+    generateBundle() {
+      this.emitFile({ type: "asset", fileName: "anon-rpc-iframe.html", source: html });
+      this.emitFile({ type: "asset", fileName: "anon-rpc-iframe.js", source: bootJs() });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), spikeResults()],
+  plugins: [react(), tailwindcss(), anonRpcIframe(), spikeResults()],
   build: {
+    // Never inline assets as data: URLs (Vite inlines files < 4 kB by default,
+    // e.g. small font subsets), so the CSP can keep font-src/img-src at 'self'.
+    assetsInlineLimit: 0,
     rollupOptions: { input: { main: resolve(import.meta.dirname, "index.html") } },
   },
 });

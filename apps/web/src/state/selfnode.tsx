@@ -6,6 +6,7 @@
 import {
   anonNetworks,
   chains,
+  createHarnessWorkerFactory,
   deriveConnection,
   parseTransportSettings,
   ROUTES,
@@ -109,7 +110,13 @@ const trafficStore = (r: TransportRouter) => {
 };
 
 export function SelfnodeProvider({ children }: { children: ReactNode }) {
-  const [router] = useState(() => new TransportRouter(loadSettings()));
+  // Self-hosted sandbox page, so the strict CSP needs no 'unsafe-inline' (see public/_headers).
+  const [router] = useState(
+    () =>
+      new TransportRouter(loadSettings(), {
+        workerFactory: createHarnessWorkerFactory({ iframeUrl: "/anon-rpc-iframe.html" }),
+      }),
+  );
   const [settings, setSettingsState] = useState<TransportSettings>(router.settings);
   const setSettings = useCallback(
     (next: TransportSettings) => {
