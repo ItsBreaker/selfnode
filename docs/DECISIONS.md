@@ -156,3 +156,41 @@ a direct EIP-1193 shim over PublicNode (the one disclosed non-anonymised read).
 `pnpm audit`: 0 critical, 0 high, 1 moderate: `minimatch` ReDoS
 (GHSA-g3hv-75wg-m249), reachable only via ESLint (dev-only). Accepted; will
 update when ESLint ships a patched range.
+
+## Phase 1: transport layer
+
+- **One router** (`packages/core/src/transport/router.ts`) hands every feature its
+  viem transport. Each JSON-RPC call is counted by route (`anon-rpc`, `bootstrap`,
+  `helios-direct`, `my-node`, `direct-approved`); a batch counts per call.
+- **Broadcasts always go through Anon-RPC**, in all three modes. Verified mode
+  needs this too: Helios would otherwise send `eth_sendRawTransaction` straight to
+  its upstream.
+- **No silent fallback.** A failing worker rejects the call. A direct request
+  needs `directOnce(chain, { userConfirmed: true })`, which is typed so it can't
+  be used by accident, and is counted separately. Tests cover each of these.
+- **Passthrough is blocked** unless `allowInsecureReferenceWorker` is set, and that
+  flag is never persisted or restored from storage.
+- **Anon transport timeout is 45 s**, because Nym's first call took 13 s in Phase 0.
+- **Helios uses `dbType: "config"`** to avoid the un-namespaced localStorage
+  checkpoint cache found in Phase 0.
+
+## Phase 1: design system
+
+- **Fonts:** Instrument Sans (400/500/600) for UI and JetBrains Mono (400/500) for
+  addresses, hashes and amounts, self-hosted via `@fontsource`. Amounts use
+  tabular, slashed-zero numerals.
+- **Colour:** warm neutral base with one accent, a deep teal (`#0B5F5A` light,
+  `#5BC0B4` dark). The accent doubles as the Private-mode colour, since Private is
+  the default and "the mode is the product". Semantic colours: verified (blue),
+  my node (graphite), warning (amber), danger (red). Tailwind's default palette,
+  fonts, shadows and radii are switched off, so only our tokens exist.
+- **WCAG AA is enforced by a test** (`apps/web/src/styles/tokens.test.ts`): 24
+  foreground/background pairs per theme, with 4.5:1 for text and 3:1 for
+  component borders and the focus ring.
+- **Theme:** follows the system preference until the user picks, then remembers
+  the choice. An inline script in `index.html` sets it before first paint. Its
+  CSP hash will be added when we set the production CSP.
+- **Mode indicator:** on small screens it hides the route detail only while the
+  connection is healthy, so a problem is never shown by colour alone.
+- **Radii are restrained** (3 px / 5 px). No gradients, glass or glow; one subtle
+  popover shadow.
