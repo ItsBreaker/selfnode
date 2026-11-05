@@ -2,15 +2,10 @@
  * Wallet state: none → locked → unlocked. The decrypted key lives only in a
  * WalletSession, which is zeroed on lock (manual, on inactivity, or on removal).
  */
-import {
-  openVault,
-  parsePrivateKey,
-  privateKeyFromMnemonic,
-  sealVault,
-  WalletSession,
-  type Secret,
-  type VaultBlob,
-} from "@selfnode/core";
+import type { Secret, VaultBlob, WalletSession } from "@selfnode/core";
+
+/** scrypt, BIP-39 and friends load only when a wallet is created or unlocked. */
+const walletLib = () => import("@selfnode/core/wallet/index");
 import {
   createContext,
   useCallback,
@@ -44,6 +39,7 @@ interface WalletCtx {
 const Ctx = createContext<WalletCtx | null>(null);
 
 async function sessionFor(secret: Secret, address: Address): Promise<WalletSession> {
+  const { privateKeyFromMnemonic, parsePrivateKey, WalletSession } = await walletLib();
   const key =
     secret.kind === "mnemonic"
       ? await privateKeyFromMnemonic(secret.value)
@@ -84,6 +80,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const create = useCallback(
     async (secret: Secret, password: string, onProgress?: (f: number) => void) => {
+      const { sealVault } = await walletLib();
       const b = await sealVault(secret, password, onProgress ? { onProgress } : {});
       await vaultStore.put(b);
       setBlob(b);
@@ -95,6 +92,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const unlock = useCallback(
     async (password: string, onProgress?: (f: number) => void) => {
       if (!blob) throw new Error("No wallet on this device");
+      const { openVault } = await walletLib();
       const secret = await openVault(blob, password, onProgress);
       adopt(await sessionFor(secret, blob.address));
     },

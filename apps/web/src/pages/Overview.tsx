@@ -16,7 +16,7 @@ import { Panel } from "../ui/Panel";
 import { Skeleton } from "../ui/Skeleton";
 import { TextLink } from "../ui/TextLink";
 import { useWallet } from "../state/wallet";
-import { BalancesPanel } from "./wallet/WalletHome";
+import { BalancesPanel } from "./wallet/BalancesPanel";
 
 export function Overview() {
   const { settings } = useSelfnode();

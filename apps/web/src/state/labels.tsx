@@ -2,22 +2,45 @@
  * The Arkiv mirror reader for the app. Reads go through Anon-RPC (in every
  * mode) and are cached in IndexedDB, so labels keep working offline.
  */
-import { arkivConfig, MirrorReader, sourceUrl, type MirrorProvenance } from "@selfnode/core";
+import {
+  arkivConfig,
+  type MirrorLabel,
+  type MirrorProvenance,
+  type MirrorReader,
+  type MirrorSig,
+} from "@selfnode/core";
 import { useQuery } from "@tanstack/react-query";
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { labelCache } from "../storage/db";
 import { useSelfnode } from "./selfnode";
 
-const Ctx = createContext<MirrorReader | null>(null);
+/** Same API as MirrorReader, but the Arkiv SDK is only loaded on the first lookup. */
+export interface Mirror {
+  label(chainId: number, address: string): Promise<MirrorLabel | null>;
+  signature(selector: string): Promise<MirrorSig | null>;
+}
+function lazyMirror(make: () => Promise<MirrorReader>): Mirror {
+  let p: Promise<MirrorReader> | null = null;
+  const get = () => (p ??= make());
+  return {
+    label: async (c, a) => (await get()).label(c, a),
+    signature: async (s) => (await get()).signature(s),
+  };
+}
+
+const Ctx = createContext<Mirror | null>(null);
 
 export function LabelsProvider({ children }: { children: ReactNode }) {
   const { router, settings } = useSelfnode();
   const reader = useMemo(
     () =>
-      new MirrorReader({
-        owner: arkivConfig.mirrorOwner,
-        fetchFn: router.anonFetch(),
-        cache: labelCache,
+      lazyMirror(async () => {
+        const { MirrorReader } = await import("@selfnode/core/labels/reader");
+        return new MirrorReader({
+          owner: arkivConfig.mirrorOwner,
+          fetchFn: router.anonFetch(),
+          cache: labelCache,
+        });
       }),
     // A new anonymity network (or its config) needs a new fetch.
     [router, settings.anonNetwork, JSON.stringify(settings.anonConfig)],
@@ -25,7 +48,7 @@ export function LabelsProvider({ children }: { children: ReactNode }) {
   return <Ctx.Provider value={reader}>{children}</Ctx.Provider>;
 }
 
-export function useMirror(): MirrorReader {
+export function useMirror(): Mirror {
   const r = useContext(Ctx);
   if (!r) throw new Error("useMirror outside LabelsProvider");
   return r;
@@ -53,4 +76,6 @@ export function useSignature(selector: string | null | undefined) {
   });
 }
 
-export const labelUrl = (p: MirrorProvenance) => sourceUrl(p);
+/** Link to the exact source revision (same as core's sourceUrl, without importing the reader). */
+export const labelUrl = (p: MirrorProvenance) =>
+  `https://github.com/${p.source}/tree/${p.sourceCommit}`;

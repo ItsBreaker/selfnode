@@ -1,57 +1,16 @@
-import { chains } from "@selfnode/core";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { useBalances } from "../../state/balances";
-import { useSelfnode } from "../../state/selfnode";
 import { AUTOLOCK_OPTIONS, useWallet } from "../../state/wallet";
 import { activityStore } from "../../storage/db";
 import { Address } from "../../ui/Address";
-import { Amount } from "../../ui/Amount";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
-import { Callout, EmptyState } from "../../ui/Callout";
+import { EmptyState } from "../../ui/Callout";
 import { Field } from "../../ui/Field";
 import { Panel } from "../../ui/Panel";
 import { Segmented } from "../../ui/Segmented";
-import { Skeleton } from "../../ui/Skeleton";
+import { BalancesPanel } from "./BalancesPanel";
 import { SendFlow } from "./SendFlow";
-
-export function BalancesPanel() {
-  const { settings } = useSelfnode();
-  const { address } = useWallet();
-  const b = useBalances(address, settings.chain);
-  return (
-    <Panel title={`Balances on ${chains[settings.chain].name}`}>
-      {b.isPending ? (
-        <div className="flex flex-col gap-3">
-          <Skeleton className="h-9 w-48" />
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-4 w-32" />
-        </div>
-      ) : b.isError ? (
-        <Callout tone="danger" title="Couldn't load balances through the active route">
-          {(b.error as Error).message.split("\n")[0]}
-        </Callout>
-      ) : (
-        <div className="flex flex-col gap-4">
-          <Amount value={b.data.native} decimals={18} symbol="ETH" size="h1" />
-          <ul className="flex flex-col divide-y divide-border border-t border-border">
-            {b.data.tokens.map(({ token, balance }) => (
-              <li key={token.address} className="flex items-center justify-between gap-4 py-2.5">
-                <span className="text-small text-muted">{token.name}</span>
-                {balance === null ? (
-                  <span className="text-small text-muted">unavailable</span>
-                ) : (
-                  <Amount value={balance} decimals={token.decimals} symbol={token.symbol} />
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </Panel>
-  );
-}
 
 function ActivityPanel() {
   const q = useQuery({ queryKey: ["activity"], queryFn: activityStore.list });
