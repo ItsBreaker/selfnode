@@ -39,7 +39,9 @@ export function Segmented<T extends string>({
             "inline-flex items-center justify-center gap-1.5 rounded-sm font-medium text-muted",
             "transition-colors duration-150 hover:text-text",
             "data-[state=on]:bg-surface data-[state=on]:text-text data-[state=on]:shadow-[0_0_0_1px_var(--border)]",
-            size === "sm" ? "h-7 px-2 text-caption" : "h-8 px-3 text-small",
+            size === "sm"
+              ? "h-11 min-w-11 px-2 text-caption sm:h-7 sm:min-w-0"
+              : "h-11 px-3 text-small sm:h-8",
           )}
         >
           {o.label}

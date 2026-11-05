@@ -39,7 +39,7 @@ export function Address({
             <Tooltip content={<>Verified label from Arkiv · source: {label.source}</>}>
               <span
                 tabIndex={0}
-                className="inline-flex text-verified"
+                className="relative inline-flex text-verified after:absolute after:-inset-3 after:content-['']"
                 aria-label={`Verified label from Arkiv, source ${label.source}`}
               >
                 <BadgeCheck size={14} aria-hidden />

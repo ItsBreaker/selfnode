@@ -23,7 +23,9 @@ export function CopyButton({
       onClick={() => void navigator.clipboard.writeText(value).then(() => setCopied(true))}
       aria-label={copied ? "Copied" : label}
       className={cx(
-        "inline-flex size-6 items-center justify-center rounded-sm text-muted hover:bg-sunken hover:text-text",
+        "relative inline-flex size-6 items-center justify-center rounded-sm text-muted hover:bg-sunken hover:text-text",
+        // Invisible 44 px hit area around the 24 px icon.
+        "after:absolute after:-inset-2.5 after:content-['']",
         className,
       )}
     >

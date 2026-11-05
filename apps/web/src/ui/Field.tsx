@@ -31,7 +31,7 @@ export function Field({ label, hint, error, mono, trailing, className, id, ...re
           aria-describedby={hint || error ? hintId : undefined}
           {...rest}
           className={cx(
-            "h-10 w-full min-w-0 bg-transparent px-3 text-body text-text placeholder:text-muted outline-none",
+            "h-11 w-full min-w-0 bg-transparent px-3 sm:h-10 text-body text-text placeholder:text-muted outline-none",
             "focus-visible:outline-none",
             mono && "font-mono text-small tabular",
           )}

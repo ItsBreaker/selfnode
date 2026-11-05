@@ -11,8 +11,9 @@ const variants: Record<Variant, string> = {
   danger: "bg-danger text-on-danger border border-transparent hover:opacity-90",
 };
 const sizes: Record<Size, string> = {
-  sm: "h-8 px-3 text-small gap-1.5",
-  md: "h-10 px-4 text-body gap-2",
+  // 44 px minimum touch target on mobile; tighter from `sm` up.
+  sm: "h-11 sm:h-8 px-3 text-small gap-1.5",
+  md: "h-11 sm:h-10 px-4 text-body gap-2",
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
