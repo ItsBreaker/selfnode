@@ -296,6 +296,9 @@ importers:
       '@arkiv-network/sdk':
         specifier: 1.0.1
         version: 1.0.1(typescript@6.0.3)(viem@2.57.16(typescript@6.0.3))
+      '@selfnode/core':
+        specifier: workspace:*
+        version: link:../packages/core
       viem:
         specifier: 2.57.16
         version: 2.57.16(typescript@6.0.3)

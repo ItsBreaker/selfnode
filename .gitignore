@@ -54,3 +54,6 @@ desktop.ini
 
 # --- Local scratch ---
 .scratch/
+
+# Arkiv mirror local caches (usage samples, run reports)
+scripts/arkiv-mirror/.cache/

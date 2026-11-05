@@ -5,10 +5,13 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "keys:generate": "tsx keys/generate.ts",
-    "fund": "tsx fund-sepolia.ts"
+    "fund": "tsx fund-sepolia.ts",
+    "arkiv:cost": "tsx arkiv-mirror/cost-probe.ts",
+    "arkiv:mirror": "tsx arkiv-mirror/index.ts"
   },
   "dependencies": {
     "@arkiv-network/sdk": "1.0.1",
+    "@selfnode/core": "workspace:*",
     "viem": "2.57.16"
   }
 }
