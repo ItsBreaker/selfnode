@@ -17,6 +17,7 @@ import { Privacy } from "./pages/Privacy";
 import { Settings } from "./pages/Settings";
 import { Styleguide } from "./pages/Styleguide";
 import { Wallet } from "./pages/Wallet";
+import { Swap } from "./pages/Swap";
 import { AddressView } from "./pages/explore/AddressView";
 import { BlockView } from "./pages/explore/BlockView";
 import { Explore } from "./pages/explore/Explore";
@@ -68,7 +69,7 @@ const router = createBrowserRouter([
           { path: "/explore/address/:address", element: <AddressView /> },
           { path: "/explore/tx/:hash", element: <TxView /> },
           { path: "/explore/block/:number", element: <BlockView /> },
-          { path: "/swap", element: <NotBuilt title="Swap" /> },
+          { path: "/swap", element: <Swap /> },
           { path: "/node", element: <NotBuilt title="Node" /> },
           { path: "*", element: <NotBuilt title="Not found" /> },
         ],
