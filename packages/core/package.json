@@ -17,5 +17,6 @@
     "@scure/bip32": "2.4.0",
     "@scure/bip39": "2.4.0",
     "viem": "2.57.16"
-  }
+  },
+  "sideEffects": false
 }

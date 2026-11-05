@@ -15,15 +15,25 @@ export interface WorkerInit {
 }
 export type WorkerFactory = (init: WorkerInit) => AnonWorkerLike | Promise<AnonWorkerLike>;
 
-/** Default factory: the official browser harness, loaded only when first needed. */
-export const harnessWorkerFactory: WorkerFactory = async ({ address, config, rpcProvider }) => {
-  const { AnonRpcWorker } = await import("@anon-rpc/browser-harness");
-  return new AnonRpcWorker({
-    address,
-    config,
-    preExisting: { rpcProvider },
-  } as ConstructorParameters<typeof AnonRpcWorker>[0]);
-};
+/**
+ * The official browser harness, loaded only when first needed. Pass `iframeUrl`
+ * (a same-origin page that loads the harness's iframe-boot.js) so a strict CSP
+ * without 'unsafe-inline' works; without it the harness uses an inline srcdoc.
+ */
+export function createHarnessWorkerFactory(opts: { iframeUrl?: string } = {}): WorkerFactory {
+  return async ({ address, config, rpcProvider }) => {
+    const { AnonRpcWorker } = await import("@anon-rpc/browser-harness");
+    return new AnonRpcWorker({
+      address,
+      config,
+      preExisting: { rpcProvider },
+      ...(opts.iframeUrl ? { iframeUrl: opts.iframeUrl } : {}),
+    } as ConstructorParameters<typeof AnonRpcWorker>[0]);
+  };
+}
+
+/** Default factory: inline srcdoc bootstrap (fine without a strict CSP, e.g. in spikes). */
+export const harnessWorkerFactory: WorkerFactory = createHarnessWorkerFactory();
 
 /**
  * The bootstrap provider: a DIRECT, non-anonymised EIP-1193 shim used once per
