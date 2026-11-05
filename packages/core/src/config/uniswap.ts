@@ -13,6 +13,12 @@
  */
 export const uniswapSepolia = {
   universalRouter: "0x3A9D48AB9751398BbFa63ad67599Bb04e4BdF98b", // shared by v3 and v4 on Sepolia
+  /**
+   * The deployed router predates v4-periphery #497 (per-hop slippage): its
+   * bytecode contains V4TooLittleReceived but none of the *PerHop errors
+   * (checked 2026-11-06). So ExactInputSingleParams has no minHopPriceX36.
+   */
+  v4ParamsLayout: "v4-launch" as const,
   permit2: "0x000000000022D473030F116dDEE9F6B43aC78BA3",
   v4: {
     poolManager: "0xE03A1074c86CFeDd5C142C4F04F1a1536e203543",
