@@ -60,3 +60,10 @@ export const chains: Record<ChainKey, ChainConfig> = {
     ],
   },
 };
+
+/** The i-th public RPC for a chain; throws instead of returning undefined. */
+export function publicRpc(chain: ChainKey, index = 0): string {
+  const url = chains[chain].publicRpcs[index];
+  if (!url) throw new Error(`No public RPC #${index} configured for ${chain}`);
+  return url;
+}

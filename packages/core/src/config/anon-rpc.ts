@@ -61,4 +61,6 @@ export const anonNetworks: Record<AnonNetworkId, AnonNetwork> = {
   },
 };
 
-export const DEFAULT_ANON_NETWORK: AnonNetworkId = "tor-js";
+// Nox: fastest and most reliable in the Phase 0 spike (docs/DECISIONS.md).
+// Tor needs a working gateway; the public demo one was unreachable on 2026-11-06.
+export const DEFAULT_ANON_NETWORK: AnonNetworkId = "nox";
