@@ -17,6 +17,11 @@ import { Privacy } from "./pages/Privacy";
 import { Settings } from "./pages/Settings";
 import { Styleguide } from "./pages/Styleguide";
 import { Wallet } from "./pages/Wallet";
+import { AddressView } from "./pages/explore/AddressView";
+import { BlockView } from "./pages/explore/BlockView";
+import { Explore } from "./pages/explore/Explore";
+import { TxView } from "./pages/explore/TxView";
+import { LabelsProvider } from "./state/labels";
 import { SelfnodeProvider } from "./state/selfnode";
 import { WalletProvider } from "./state/wallet";
 import { useTheme } from "./theme";
@@ -30,11 +35,13 @@ function Root() {
   return (
     <QueryClientProvider client={queryClient}>
       <SelfnodeProvider>
-        <WalletProvider>
-          <TooltipProvider>
-            <Outlet />
-          </TooltipProvider>
-        </WalletProvider>
+        <LabelsProvider>
+          <WalletProvider>
+            <TooltipProvider>
+              <Outlet />
+            </TooltipProvider>
+          </WalletProvider>
+        </LabelsProvider>
       </SelfnodeProvider>
     </QueryClientProvider>
   );
@@ -57,7 +64,10 @@ const router = createBrowserRouter([
           { path: "/settings", element: <Settings /> },
           { path: "/privacy", element: <Privacy /> },
           { path: "/wallet", element: <Wallet /> },
-          { path: "/explore", element: <NotBuilt title="Explore" /> },
+          { path: "/explore", element: <Explore /> },
+          { path: "/explore/address/:address", element: <AddressView /> },
+          { path: "/explore/tx/:hash", element: <TxView /> },
+          { path: "/explore/block/:number", element: <BlockView /> },
           { path: "/swap", element: <NotBuilt title="Swap" /> },
           { path: "/node", element: <NotBuilt title="Node" /> },
           { path: "*", element: <NotBuilt title="Not found" /> },

@@ -1,6 +1,7 @@
 import { Search } from "lucide-react";
 import type { ReactNode } from "react";
 import { NavLink } from "react-router";
+import { SearchDialog } from "../pages/explore/SearchDialog";
 import { Kbd } from "../ui/Kbd";
 import { cx } from "../ui/cx";
 import { NAV } from "./nav";
@@ -51,17 +52,21 @@ export function Header({
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            className="hidden h-9 items-center gap-2 rounded-md border border-border bg-surface px-3 text-small text-muted hover:border-border-strong md:inline-flex"
-            aria-label="Search addresses, transactions, blocks or ENS names"
-          >
-            <Search size={14} aria-hidden />
-            <span className="hidden xl:inline">Search</span>
-            <span className="hidden xl:inline-flex">
-              <Kbd>⌘K</Kbd>
-            </span>
-          </button>
+          <SearchDialog
+            trigger={
+              <button
+                type="button"
+                className="inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 text-small text-muted hover:border-border-strong sm:h-9"
+                aria-label="Search addresses, transactions, blocks or ENS names"
+              >
+                <Search size={14} aria-hidden />
+                <span className="hidden 2xl:inline">Search</span>
+                <span className="hidden 2xl:inline-flex">
+                  <Kbd>⌘K</Kbd>
+                </span>
+              </button>
+            }
+          />
           {modeIndicator}
           <div className="hidden md:block">{themeToggle}</div>
           {mobileNav}
