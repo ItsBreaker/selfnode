@@ -12,7 +12,12 @@
  * - dRPC: https://drpc.org/chainlist/ethereum (free tier serves mainnet but not Sepolia as of 2026-11-06)
  * - 1RPC: https://docs.1rpc.io/ (no eth_getProof on the free plan)
  */
+import { mainnet, sepolia, type Chain } from "viem/chains";
+
 export type ChainKey = "mainnet" | "sepolia";
+
+/** viem chain objects, for clients. */
+export const viemChains: Record<ChainKey, Chain> = { mainnet, sepolia };
 
 export interface ChainConfig {
   key: ChainKey;

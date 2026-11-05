@@ -59,6 +59,7 @@ describe("TransportRouter", () => {
     expect(s["anon-rpc"]).toBe(1);
     expect(s.bootstrap).toBe(1); // only the specifier read went direct
     expect(direct.urls).toHaveLength(1); // and that was the bootstrap provider
+    expect(router.health.snapshot().lastOkAt).not.toBeNull();
   });
 
   it("counts each call inside a JSON-RPC batch", async () => {

@@ -14,6 +14,7 @@ import { heliosUpstreams } from "../config/helios.js";
 import { AnonWorkerPool, type WorkerFactory } from "./anon-pool.js";
 import { TransportUnavailableError } from "./errors.js";
 import { heliosProviderFactory, type HeliosFactory } from "./helios.js";
+import { HealthTracker, trackedFetch } from "./health.js";
 import { countingFetch, TrafficCounter } from "./traffic.js";
 import type { Eip1193Like, TransportSettings } from "./types.js";
 
@@ -30,6 +31,8 @@ export interface RouterDeps {
 export class TransportRouter {
   readonly counter: TrafficCounter;
   readonly pool: AnonWorkerPool;
+  /** Health of the active mode's main route (reset when the route changes). */
+  readonly health = new HealthTracker();
   #settings: TransportSettings;
   #helios = new Map<string, Promise<Eip1193Like>>();
   #heliosFactory: HeliosFactory;
@@ -55,24 +58,34 @@ export class TransportRouter {
         this.pool.close(id);
     }
     if (JSON.stringify(prev.helios) !== JSON.stringify(next.helios)) this.#helios.clear();
+    const routeKey = (x: TransportSettings) =>
+      JSON.stringify([
+        x.mode,
+        x.chain,
+        x.anonNetwork,
+        x.anonConfig,
+        x.rpcUrl,
+        x.myNodeUrl,
+        x.helios,
+      ]);
+    if (routeKey(prev) !== routeKey(next)) this.health.reset();
     this.#settings = next;
   }
 
   /** The viem transport for the active mode on `chain` (defaults to the active chain). */
   transport(chain: ChainKey = this.#settings.chain): Transport {
     const s = this.#settings;
-    const anon = this.#anonTransport(chain);
     switch (s.mode) {
       case "private":
-        return anon;
+        return this.#anonTransport(chain, true);
       case "mynode": {
         const url = s.myNodeUrl?.[chain];
         if (!url) return failing("mynode", `No node URL configured for ${chain}`);
         const node = http(url, {
-          fetchFn: countingFetch(this.#fetch, this.counter, "my-node"),
+          fetchFn: countingFetch(trackedFetch(this.#fetch, this.health), this.counter, "my-node"),
           batch: true,
         });
-        return broadcastViaAnon(node, anon);
+        return broadcastViaAnon(node, this.#anonTransport(chain, false));
       }
       case "verified": {
         const upstream = s.helios?.[chain] ?? heliosUpstreams[chain];
@@ -93,10 +106,10 @@ export class TransportRouter {
         const helios = custom({
           request: async (args) => {
             this.counter.add("helios-direct");
-            return (await p).request(args);
+            return this.health.track(async () => (await p).request(args));
           },
         });
-        return broadcastViaAnon(helios, anon);
+        return broadcastViaAnon(helios, this.#anonTransport(chain, false));
       }
     }
   }
@@ -115,7 +128,8 @@ export class TransportRouter {
     });
   }
 
-  #anonTransport(chain: ChainKey): Transport {
+  /** `main`: this is the mode's main route, so track its health. */
+  #anonTransport(chain: ChainKey, main: boolean): Transport {
     const s = this.#settings;
     const url = s.rpcUrl?.[chain] ?? publicRpc(chain);
     const anonFetch = this.pool.fetchFor(s.anonNetwork, {
@@ -123,7 +137,11 @@ export class TransportRouter {
       allowInsecure: s.allowInsecureReferenceWorker === true,
     });
     return http(url, {
-      fetchFn: countingFetch(anonFetch, this.counter, "anon-rpc"),
+      fetchFn: countingFetch(
+        main ? trackedFetch(anonFetch, this.health) : anonFetch,
+        this.counter,
+        "anon-rpc",
+      ),
       batch: { wait: 16 },
       timeout: ANON_TIMEOUT_MS,
       retryCount: 1,
