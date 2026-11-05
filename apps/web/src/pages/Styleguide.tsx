@@ -145,11 +145,18 @@ function Gallery({
             />
             <ModeIndicator
               mode="private"
-              state="degraded"
+              state="slow"
               via="via Nym"
               chain="Sepolia"
               latencyMs={13100}
-              problem="slow network"
+            />
+            <ModeIndicator
+              mode="private"
+              state="ready"
+              via="via Nox"
+              chain="Sepolia"
+              latencyMs={1240}
+              direct={1}
             />
             <ModeIndicator
               mode="private"
