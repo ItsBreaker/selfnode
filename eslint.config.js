@@ -13,7 +13,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["scripts/**", "**/*.spike.ts", "**/spikes/**"],
+    files: ["scripts/**", "**/*.spike.ts", "**/spikes/**", "arkiv/examples/**"],
     rules: { "no-console": "off" },
   },
 );

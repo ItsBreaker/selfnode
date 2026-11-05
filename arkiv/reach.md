@@ -8,6 +8,82 @@
   before signing, and warns, with the source named, if the address is flagged.
   All reads go through Anon-RPC and are cached on the device.
 
+## Reuse it in your wallet or explorer (copy-paste)
+
+Everything below runs as-is against the live mirror: no access key, no Selfnode
+code, just the official SDK. The full script is
+[`arkiv/examples/query.ts`](examples/query.ts)
+(`npm i @arkiv-network/sdk viem && npx tsx query.ts`).
+
+```ts
+import { createPublicClient } from "@arkiv-network/sdk";
+import { rabdi } from "@arkiv-network/sdk/chains";
+import { and, eq } from "@arkiv-network/sdk/query";
+import { http } from "viem";
+
+const MIRROR = "0xA05A5c06d69dECa38FdB779957d4E7B3aC2B8c39"; // always scope by owner
+const arkiv = createPublicClient({ chain: rabdi({ accessKey: "" }), transport: http() });
+```
+
+**Label for an address.** A contract name, a token, or "Flagged by
+MyEtherWallet's list":
+
+```ts
+const { entities } = await arkiv
+  .select({ name: true, category: true, note: true, source: true, sourceCommit: true })
+  .where(
+    and(
+      eq("type", "label"),
+      eq("chain", "1"),
+      eq("address", "0x09750ad360fdb7a2ee23669c4503c974d86d8694"),
+    ),
+  )
+  .ownedBy(MIRROR)
+  .limit(1)
+  .fetch();
+// → name "Flagged by MyEtherWallet's list", category "flagged",
+//   note (bytes, hex-encoded UTF-8) "XRP phishing website (ripple.com.pt) …"
+```
+
+**Token by symbol** (a symbol can match several contracts, so check the address):
+
+```ts
+const { entities } = await arkiv
+  .select({ address: true, name: true, decimals: true, source: true })
+  .where(and(eq("type", "token"), eq("chain", "1"), eq("symbol", "USDC")))
+  .ownedBy(MIRROR)
+  .limit(10)
+  .fetch();
+// → address 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48, decimals 6, source ethereum-lists/tokens
+```
+
+**Function name for a selector** (collisions come back as `;`-separated candidates):
+
+```ts
+const { entities } = await arkiv
+  .select({ text: true, rank: true, source: true })
+  .where(and(eq("type", "sig"), eq("selector", "0xa9059cbb")))
+  .ownedBy(MIRROR)
+  .limit(1)
+  .fetch();
+// → text (bytes, hex-encoded UTF-8) "transfer(address,uint256)", rank 1
+```
+
+**More filters you can combine** (all indexed):
+
+| Want                             | Filter                                                                                  |
+| -------------------------------- | --------------------------------------------------------------------------------------- |
+| Every flagged address on mainnet | `and(eq("type","label"), eq("chain","1"), eq("category","flagged"))`                    |
+| Labels from one source only      | `eq("source","MyEtherWallet/ethereum-lists")`                                           |
+| Sepolia tokens                   | `and(eq("type","token"), eq("chain","11155111"))`                                       |
+| The 100 most-used function names | `and(eq("type","sig"), lte("rank", i32(100)))` (`i32` from `@arkiv-network/sdk/schema`) |
+| The licence notice for a dataset | `and(eq("type","dataset"), eq("dataset","labels"))`                                     |
+
+Tips: batch many addresses in one query with
+`or(addresses.map((a) => eq("address", a)))` (we use chunks of 25). Cache
+results, including "not found". Read through an anonymity network if you can,
+which is what Selfnode does.
+
 ## After the event
 
 - **Any wallet or explorer can query it**, keylessly and without asking us. The
