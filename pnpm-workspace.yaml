@@ -7,6 +7,9 @@ packages:
 # genuinely required. See docs/DECISIONS.md ("Install scripts").
 allowBuilds:
   esbuild: true
+  # workerd's postinstall only re-checks (or re-downloads) its platform binary,
+  # which pnpm already installs as an optional dependency. Not needed; denied.
+  workerd: false
 
 # Exact versions only.
 savePrefix: ""

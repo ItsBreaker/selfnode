@@ -1,0 +1,19 @@
+// Cloudflare Worker serving the static build (no server code).
+// Placeholder name: change before the first deploy. Not deployed yet.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "selfnode-web",
+  "compatibility_date": "2026-11-01",
+  "workers_dev": true,
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application",
+    // Serve /anon-rpc-iframe.html at exactly that URL. The default would 307 to
+    // /anon-rpc-iframe, where the main CSP and X-Frame-Options: DENY apply and
+    // the sandbox can't load.
+    "html_handling": "none",
+  },
+  // No telemetry from our tooling either.
+  "send_metrics": false,
+  "observability": { "enabled": false },
+}
