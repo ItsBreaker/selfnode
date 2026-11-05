@@ -82,7 +82,7 @@ export const PARTIES: Party[] = [
   {
     name: "Arkiv",
     who: "The Arkiv testnet RPC, for address labels and function names.",
-    status: "planned",
+    status: "live",
     learns: {
       private:
         "Which addresses and function selectors you look up, but not your IP address: lookups go through the anonymity network and are cached locally.",
@@ -93,7 +93,7 @@ export const PARTIES: Party[] = [
   {
     name: "Uniswap",
     who: "Uniswap Labs and its servers.",
-    status: "planned",
+    status: "live",
     learns: {
       private:
         "Nothing. Quotes and swaps are calls to Uniswap's on-chain contracts through your active route. There is no Uniswap API, so the RPC provider sees them like any other request.",
