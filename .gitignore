@@ -1,0 +1,56 @@
+# --- Secrets: never commit ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.jks
+keystore/
+keystores/
+*.mnemonic
+jwt.hex
+jwtsecret
+secrets/
+
+# --- Dependencies ---
+node_modules/
+.pnpm-store/
+
+# --- Build output ---
+dist/
+build/
+out/
+release/
+*.tsbuildinfo
+.vite/
+coverage/
+.wrangler/
+.turbo/
+
+# --- Local node data (desktop node manager / dev nodes) ---
+node-data/
+geth-data/
+nimbus-data/
+lighthouse-data/
+chaindata/
+*.ldb
+
+# --- Logs ---
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# --- Local scratch ---
+.scratch/
