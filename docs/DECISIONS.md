@@ -374,3 +374,9 @@ update when ESLint ships a patched range.
 - **workerd's postinstall is explicitly denied** (`allowBuilds: workerd: false`).
   It only re-checks or re-downloads the platform binary, which pnpm already
   installs as an optional dependency, and `wrangler dev` works without it.
+- **Deployed (2026-11-06, with the maintainer's OK)** with `wrangler deploy` to the
+  existing `selfnode` Worker (config name changed from the placeholder so it
+  targets that Worker, and so Cloudflare's Git builds accept it). Verified live:
+  every path returns 200 with the intended headers, the sandbox page is served at
+  `/anon-rpc-iframe.html` with its own CSP, and Nox, Helios (mainnet), Arkiv
+  labels and the swap page run in headless Chromium with zero CSP violations.
