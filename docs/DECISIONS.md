@@ -194,3 +194,53 @@ update when ESLint ships a patched range.
   connection is healthy, so a problem is never shown by colour alone.
 - **Radii are restrained** (3 px / 5 px). No gradients, glass or glow; one subtle
   popover shadow.
+
+## Phase 1 follow-up (design feedback applied)
+
+- **Accent is now neutral ink** (`#22262D` light / `#ECEAE4` dark) for buttons and
+  links. Teal is reserved for Private mode, so mode colours carry meaning. Links
+  are always underlined, because ink alone doesn't distinguish them.
+- **Connection popover:** shows status, route, network, latency and Anon-RPC share,
+  what the mode hides and doesn't (from `content/modes.ts`, shared with the
+  Privacy page), a mode switch, and links to Privacy and Settings.
+- **Labelled states:** Connecting, Slow (over 8 s average) and Unavailable appear as
+  words, not just colour, and an amber "N direct" label appears whenever a
+  user-approved direct request was made this session. Connection state comes from
+  a pure, tested function (`deriveConnection`).
+- **Wrong-chain detection:** on start, the app checks the endpoint's `eth_chainId`.
+  A mismatch (e.g. a mainnet node configured for Sepolia) is a sticky failure
+  until settings change.
+- **44 px touch targets** below `sm` for buttons, segmented controls, inputs and
+  icon buttons (an invisible hit area); radii stay tight.
+
+## Phase 2: wallet
+
+- **Vault:** scrypt (N=2^17, r=8, p=1; ~180 ms in Node, ~220 ms measured in
+  headless Chromium) → AES-GCM (WebCrypto) with a random 32-byte salt and 12-byte
+  IV. Version, kind, address, KDF parameters, salt and IV are bound as AES-GCM
+  additional data, so tampering with any field fails decryption. Opening refuses
+  KDF parameters above N=2^20 so a tampered blob can't exhaust memory. After
+  decryption, the derived address must match the stored one. Stored in IndexedDB
+  (`idb`). Desktop will additionally wrap it with Electron `safeStorage` (Phase 5).
+- **Key in memory:** held as `Uint8Array` in a `WalletSession`, zeroed on lock
+  (manual, after 1/5/10/30 minutes of inactivity, on `pagehide`, or on removal).
+  viem needs a hex string to sign; strings can't be wiped, so the hex exists only
+  for one signature. This is the practical limit in a browser, and it's documented.
+- **Signer** (`packages/core/src/wallet/signer.ts`) is the only module that signs.
+  Transactions and typed data must name a testnet chain ID; mainnet, unknown
+  chains and a missing chain ID are refused, and only EIP-1559 transactions are
+  signed. `personal_sign` isn't offered. Tests cover each case.
+- **Pre-sign preview:** `gatherSendFacts` (I/O through the active route) plus
+  `assessSend` (pure, tested). It covers the zero address, sending tokens to the
+  token contract, flagged-label categories (wired to Arkiv in Phase 3), failed
+  simulation, insufficient balance, contract recipients and brand-new addresses.
+  Some dangers need an explicit acknowledgement; others block the send.
+- **History:** only transactions sent from this device, stored locally. Full
+  address history needs an archive node (Phase 3 says so in the explorer).
+- **No ENS recipients yet**, and no Max button for ETH. Both are deferred.
+- **End-to-end on Sepolia (2026-11-06):** a wallet created in the browser UI,
+  funded by `scripts/fund-sepolia.ts`, sent 0.0005 ETH back through the UI.
+  Signed in-browser, broadcast through Nox, confirmed
+  (`0x41209be870e500c3d5e9929606393b0f5def955e059459ed0d739a4c933af54e`).
+  Traffic for the session: 24 requests through Anon-RPC, 2 bootstrap reads,
+  0 direct.
