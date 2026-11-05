@@ -1,0 +1,12 @@
+packages:
+  - packages/*
+  - apps/*
+  - scripts
+
+# Dependency build scripts are blocked by default. Only allow what is
+# genuinely required. See docs/DECISIONS.md ("Install scripts").
+allowBuilds:
+  esbuild: true
+
+# Exact versions only.
+savePrefix: ""

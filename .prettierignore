@@ -1,0 +1,4 @@
+pnpm-lock.yaml
+SELFNODE_BUILD_BRIEF.md
+**/dist
+**/release
