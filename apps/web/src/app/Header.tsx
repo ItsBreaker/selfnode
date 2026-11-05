@@ -1,0 +1,76 @@
+import { Search } from "lucide-react";
+import type { ReactNode } from "react";
+import { NavLink } from "react-router";
+import { Kbd } from "../ui/Kbd";
+import { cx } from "../ui/cx";
+import { Wordmark } from "./Wordmark";
+
+export const NAV = [
+  { to: "/", label: "Overview", end: true },
+  { to: "/wallet", label: "Wallet" },
+  { to: "/explore", label: "Explore" },
+  { to: "/swap", label: "Swap" },
+  { to: "/node", label: "Node" },
+  { to: "/privacy", label: "Privacy" },
+  { to: "/settings", label: "Settings" },
+] as const;
+
+export function Header({
+  modeIndicator,
+  themeToggle,
+}: {
+  modeIndicator: ReactNode;
+  themeToggle: ReactNode;
+}) {
+  return (
+    <header className="border-b border-border bg-bg">
+      <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:gap-5 sm:px-5">
+        <NavLink to="/" className="shrink-0" aria-label="Selfnode overview">
+          <Wordmark />
+        </NavLink>
+        <nav aria-label="Main" className="hidden items-center gap-0.5 lg:flex">
+          {NAV.map((n) => (
+            <NavLink
+              key={n.to}
+              to={n.to}
+              end={"end" in n ? n.end : false}
+              className={({ isActive }) =>
+                cx(
+                  "rounded-sm px-2.5 py-1.5 text-small font-medium transition-colors duration-150",
+                  isActive ? "text-text" : "text-muted hover:text-text",
+                )
+              }
+            >
+              {({ isActive }) => (
+                <span className="relative">
+                  {n.label}
+                  {isActive && (
+                    <span
+                      aria-hidden
+                      className="absolute -bottom-[17px] left-0 right-0 h-0.5 bg-accent"
+                    />
+                  )}
+                </span>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            type="button"
+            className="hidden h-9 items-center gap-2 rounded-md border border-border bg-surface px-3 text-small text-muted hover:border-border-strong md:inline-flex"
+            aria-label="Search addresses, transactions, blocks or ENS names"
+          >
+            <Search size={14} aria-hidden />
+            <span className="hidden xl:inline">Search</span>
+            <span className="hidden xl:inline-flex">
+              <Kbd>⌘K</Kbd>
+            </span>
+          </button>
+          {modeIndicator}
+          <div className="hidden md:block">{themeToggle}</div>
+        </div>
+      </div>
+    </header>
+  );
+}
