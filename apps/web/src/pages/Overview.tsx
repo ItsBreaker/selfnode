@@ -15,9 +15,12 @@ import { MODE_LABEL, MODE_TONE, STATE_LABEL } from "../ui/ModeIndicator";
 import { Panel } from "../ui/Panel";
 import { Skeleton } from "../ui/Skeleton";
 import { TextLink } from "../ui/TextLink";
+import { useWallet } from "../state/wallet";
+import { BalancesPanel } from "./wallet/WalletHome";
 
 export function Overview() {
   const { settings } = useSelfnode();
+  const wallet = useWallet();
   const c = useConnection();
   const client = usePublicClient();
   const routeKey = useRouteKey();
@@ -96,12 +99,20 @@ export function Overview() {
 
         <TrafficPanel />
 
-        <Panel title="Wallet" className="lg:col-span-2">
-          <EmptyState title="No wallet on this device yet">
-            Create or import a wallet to see balances here. Keys are encrypted on this device and
-            never leave it.
-          </EmptyState>
-        </Panel>
+        <div className="lg:col-span-2">
+          {wallet.address ? (
+            <BalancesPanel />
+          ) : (
+            <Panel title="Wallet">
+              <EmptyState
+                title="No wallet on this device yet"
+                action={<TextLink to="/wallet">Create or import a wallet</TextLink>}
+              >
+                Keys are encrypted on this device and never leave it.
+              </EmptyState>
+            </Panel>
+          )}
+        </div>
 
         <Panel title="Your node">
           <p className="text-small text-muted">

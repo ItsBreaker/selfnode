@@ -16,7 +16,9 @@ import { Overview } from "./pages/Overview";
 import { Privacy } from "./pages/Privacy";
 import { Settings } from "./pages/Settings";
 import { Styleguide } from "./pages/Styleguide";
+import { Wallet } from "./pages/Wallet";
 import { SelfnodeProvider } from "./state/selfnode";
+import { WalletProvider } from "./state/wallet";
 import { useTheme } from "./theme";
 import { TooltipProvider } from "./ui/Tooltip";
 
@@ -28,9 +30,11 @@ function Root() {
   return (
     <QueryClientProvider client={queryClient}>
       <SelfnodeProvider>
-        <TooltipProvider>
-          <Outlet />
-        </TooltipProvider>
+        <WalletProvider>
+          <TooltipProvider>
+            <Outlet />
+          </TooltipProvider>
+        </WalletProvider>
       </SelfnodeProvider>
     </QueryClientProvider>
   );
@@ -52,7 +56,7 @@ const router = createBrowserRouter([
           { path: "/", element: <Overview /> },
           { path: "/settings", element: <Settings /> },
           { path: "/privacy", element: <Privacy /> },
-          { path: "/wallet", element: <NotBuilt title="Wallet" /> },
+          { path: "/wallet", element: <Wallet /> },
           { path: "/explore", element: <NotBuilt title="Explore" /> },
           { path: "/swap", element: <NotBuilt title="Swap" /> },
           { path: "/node", element: <NotBuilt title="Node" /> },
