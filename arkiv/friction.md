@@ -15,3 +15,9 @@ Kept as we go. Honest notes, newest last.
   "list everything" is the first thing people try.
 - The access key travels in the URL path, so it shows up in any proxy or RPC
   log of the URL. Worth documenting for people routing traffic through relays.
+- The SDK's `rabdi({ accessKey })` only supports putting the key in the URL
+  path. The endpoint also accepts an `X-API-KEY` header (a real key raised the
+  rate limit from 2000 to 5000; a bogus one got 401), but this isn't documented
+  in the SDK README. We use the header so the key never appears in URLs or logs.
+  A `rabdi({ accessKey, via: "header" })` option would help.
+- Writes are fast: `createEntity` resolved in 3.3 s including block inclusion.
