@@ -282,3 +282,39 @@ update when ESLint ships a patched range.
 - **Measured (browser, Nox, 2026-11-06):** a 50-row mainnet block view with
   labels and decoded methods took ~10 s cold; a flagged-address page took ~7 s.
   0 direct requests.
+
+## Phase 4: swap (Uniswap v4, Sepolia)
+
+- **v4 on the existing pools, no seeding.** Native ETH/USDC pools exist at all four
+  standard tiers. `scripts/seed-pool.ts` isn't needed and wasn't written.
+- **No Uniswap SDK.** The encoding is ~200 lines of viem
+  (`packages/core/src/swap/v4.ts`), with constants verified against
+  `Commands.sol` and `Actions.sol`. That's fewer dependencies and easier to audit.
+- **Struct layout pinned to `v4-launch`.** The deployed Sepolia Universal Router
+  predates v4-periphery #497. Its bytecode contains `V4TooLittleReceived` but none
+  of the `*PerHop` errors. Both layouts simulate successfully with empty
+  `hookData`, so bytecode was the only conclusive check
+  (`scripts/spikes/uniswap-v4-*`). Recorded in `config/uniswap.ts` and FEEDBACK.md.
+- **Quoting:** `quoteExactInputSingle` on the v4 Quoter for every standard tier,
+  as `eth_call` through the active route (Anon-RPC by default), best output first.
+  Price impact is measured against each pool's spot price from `StateView.getSlot0`
+  and includes the pool fee.
+- **Execution:** `execute(commands, inputs, deadline)` with `V4_SWAP` =
+  `SWAP_EXACT_IN_SINGLE` + `SETTLE_ALL(maxIn)` + `TAKE_ALL(minOut)`. The minimum
+  is enforced twice, in the swap params and in `TAKE_ALL`.
+- **Permit2 for token input:** an ERC-20 approval to Permit2 for **exactly the
+  swap amount** (not unlimited), then a `PermitSingle` signature (expiring with
+  the swap deadline) passed as `PERMIT2_PERMIT` in the same router call. The
+  signature goes through the testnet-only `signTypedData`.
+- **Pre-sign checks** (`assessSwap`, tested): balance and gas blocking, failed
+  simulation blocking, price impact ≥ 1% warns and ≥ 5% needs acknowledgement,
+  slippage over 3% warns.
+- **Defaults:** 0.5% slippage (0.1, 0.5, 1 or 3% offered), 20-minute deadline
+  (1–180).
+- **Verified end-to-end in the browser through Nox (2026-11-06):** ETH → USDC and
+  USDC → ETH (approval + permit + swap). Session traffic: 95 through Anon-RPC,
+  2 bootstrap, 0 direct. Hashes are in FEEDBACK.md.
+- **Known limit:** standard tiers without hooks only. Pools with hooks or
+  non-standard tick spacing aren't discovered.
+- **Explorer UX (from review feedback):** the transaction view renders as soon as
+  the transaction arrives; receipt, block time and logs fill in with skeletons.
