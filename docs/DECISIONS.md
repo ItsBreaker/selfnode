@@ -318,3 +318,22 @@ update when ESLint ships a patched range.
   non-standard tick spacing aren't discovered.
 - **Explorer UX (from review feedback):** the transaction view renders as soon as
   the transaction arrives; receipt, block time and logs fill in with skeletons.
+
+## Phase 6: submission docs
+
+- **Traffic-share number for the README:** 97.9% (95 of 97 calls), measured in a
+  scripted end-to-end browser session: create a wallet, receive funds, swap both
+  directions. The remaining 2 are the bootstrap reads; 0 direct. Shorter sessions
+  show a lower share, because the 2 bootstrap reads are a fixed cost per session
+  (e.g. 92.3% in the shorter send-only test).
+- **Arkiv reach:** a standalone query example (`arkiv/examples/query.ts`, official
+  SDK only, no Selfnode code, no key), verified against the live mirror, plus
+  copy-paste recipes in `arkiv/reach.md`.
+- **Anon-RPC adopters entry** prepared in `docs/anon-rpc-adopters-entry.md`, not
+  opened.
+- **Known limitation:** the mirrored scam list and contract labels are mainnet
+  (chain 1) data. The send-time flagged-recipient check runs on Sepolia, so it has
+  no Sepolia flags to match. The explorer shows mainnet flags.
+- **Not done:** Cloudflare deployment, `wrangler` config and production security
+  headers (CSP that permits the Anon-RPC sandbox). Desktop app and Swarm bonus are
+  pending a decision.
