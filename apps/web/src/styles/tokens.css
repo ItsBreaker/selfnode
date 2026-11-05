@@ -1,0 +1,74 @@
+/*
+ * Selfnode design tokens. Every colour in the UI comes from here.
+ * Neutral warm base, ONE accent (teal, which also marks Private mode, the
+ * default), and semantic colours for verified / warning / danger / my-node.
+ * Contrast is enforced by src/styles/tokens.test.ts (WCAG AA).
+ */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f6f5f1;
+  --surface: #ffffff;
+  --sunken: #eeece6;
+  --border: #dddacf;
+  --border-strong: #8c877b;
+  --text: #1a1a17;
+  --muted: #5c5950;
+
+  --accent: #0b5f5a;
+  --on-accent: #ffffff;
+  --accent-soft: #e1eeec;
+  --accent-hover: #084b47;
+
+  --private: var(--accent);
+  --private-soft: var(--accent-soft);
+  --verified: #2a5594;
+  --verified-soft: #e4ebf6;
+  --mynode: #45433d;
+  --mynode-soft: #e9e7e1;
+  --warning: #8a5300;
+  --warning-soft: #f6ebd6;
+  --danger: #b0261c;
+  --danger-soft: #f8e3e0;
+  --on-danger: #ffffff;
+
+  --focus: #0b5f5a;
+  --shadow-pop: 0 1px 2px rgb(26 26 23 / 0.06), 0 8px 24px rgb(26 26 23 / 0.08);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #121311;
+  --surface: #1a1b18;
+  --sunken: #0d0e0c;
+  --border: #2c2d29;
+  --border-strong: #6e6f68;
+  --text: #eceae4;
+  --muted: #a3a097;
+
+  --accent: #5bc0b4;
+  --on-accent: #0d1f1d;
+  --accent-soft: #17302d;
+  --accent-hover: #7dd0c6;
+
+  --private: var(--accent);
+  --private-soft: var(--accent-soft);
+  --verified: #8eb4ee;
+  --verified-soft: #1b2638;
+  --mynode: #c9c6bd;
+  --mynode-soft: #2a2a26;
+  --warning: #e3ae4c;
+  --warning-soft: #33270f;
+  --danger: #f28b80;
+  --danger-soft: #3a1a17;
+  --on-danger: #1f0b09;
+
+  --focus: #5bc0b4;
+  --shadow-pop: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.35);
+}
+
+/* Scoped themes (styleguide side-by-side) need the base colours applied too. */
+[data-theme] {
+  background-color: var(--bg);
+  color: var(--text);
+}

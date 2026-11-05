@@ -1,5 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, type Plugin } from "vite";
 
 /**
@@ -28,7 +30,7 @@ function spikeResults(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [spikeResults()],
+  plugins: [react(), tailwindcss(), spikeResults()],
   build: {
     rollupOptions: { input: { main: resolve(import.meta.dirname, "index.html") } },
   },
