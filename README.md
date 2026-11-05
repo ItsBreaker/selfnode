@@ -35,6 +35,22 @@ pnpm check                           # typecheck, lint, format, tests
 Node 26 and pnpm 12. No API keys are needed to run the app. Optional scripts read
 keys from a local `.env` (see [`.env.example`](.env.example)).
 
+## Deploy
+
+A Cloudflare Worker with static assets and no server code
+([`apps/web/wrangler.jsonc`](apps/web/wrangler.jsonc)), with security headers in
+[`apps/web/public/_headers`](apps/web/public/_headers):
+
+- A strict CSP: no `'unsafe-inline'` and no `'unsafe-eval'`, only
+  `'wasm-unsafe-eval'`. `frame-ancestors 'none'`, `nosniff`,
+  `Referrer-Policy: no-referrer`, a locked-down `Permissions-Policy`, and COOP.
+- The Anon-RPC sandbox page is self-hosted with its own tighter policy, so the
+  harness never needs an inline script.
+
+Tested with `pnpm --filter @selfnode/web preview:cf` (`wrangler dev` on the
+production build): Nox, Nym, Helios (WASM), Arkiv labels and the full
+wallet-and-swap flow all ran with zero CSP violations.
+
 ## Anon-RPC: private by default
 
 - One long-lived `AnonRpcWorker` per anonymity network; its `fetch` is passed to
@@ -54,11 +70,12 @@ keys from a local `.env` (see [`.env.example`](.env.example)).
 
 ### Traffic share
 
-In a scripted end-to-end session in the browser (create a wallet, receive
-funds, then swap ETH → USDC and USDC → ETH through Permit2),
-**95 of 97 JSON-RPC calls (97.9%) went through Anon-RPC**. The other 2 were the
-disclosed bootstrap reads. **0** went direct. Settings → Traffic shows the live
-counter, by route, for the session and all time.
+In a scripted end-to-end session against the **production build, served with the
+production security headers** (create a wallet, receive funds, then swap ETH →
+USDC and USDC → ETH through Permit2), **97 of 99 JSON-RPC calls (98.0%) went
+through Anon-RPC**. The other 2 were the disclosed bootstrap reads. **0** went
+direct. Settings → Traffic shows the live counter, by route, for the session and
+all time.
 
 Every exception, and why:
 

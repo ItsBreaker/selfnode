@@ -337,3 +337,40 @@ update when ESLint ships a patched range.
 - **Not done:** Cloudflare deployment, `wrangler` config and production security
   headers (CSP that permits the Anon-RPC sandbox). Desktop app and Swarm bonus are
   pending a decision.
+
+## Deployment hardening
+
+- **Cloudflare Worker, static assets only** (`apps/web/wrangler.jsonc`),
+  `workers_dev: true`, placeholder name `selfnode-web`. `send_metrics: false`
+  disables wrangler telemetry, and observability is off. Not deployed.
+- **`html_handling: "none"`** is required. By default Cloudflare 307s
+  `/anon-rpc-iframe.html` to `/anon-rpc-iframe`, where the main CSP and
+  `X-Frame-Options: DENY` apply, so the sandbox can't load. That would have broken
+  Private mode in production while working in dev. Both paths are also matched in
+  `_headers`.
+- **Strict CSP without `'unsafe-inline'`:**
+  - The Anon-RPC harness's inline `srcdoc` bootstrap is replaced by a self-hosted
+    `/anon-rpc-iframe.html`, emitted by a Vite plugin from the pinned harness
+    package and passed as `iframeUrl`.
+  - The inline theme script moved to `/theme-init.js`.
+  - Asset inlining is off (`assetsInlineLimit: 0`), so small font subsets aren't
+    `data:` URLs.
+  - `connect-src` allows `https:`/`wss:` (user-chosen RPC, Helios and node
+    endpoints, plus hash-pinned worker resolvers), local `http://127.0.0.1` and
+    `localhost` (local node), and `data:` (Helios embeds its WASM as a data: URL).
+    A node on a LAN IP over plain HTTP is blocked; use HTTPS or localhost.
+  - The sandbox page has its own policy: `script-src 'self' blob: data:
+'wasm-unsafe-eval'`, `worker-src blob: data:`, `frame-ancestors 'self'`.
+- **Verified under the production headers** (`wrangler dev`, headless Chromium,
+  2026-11-06): Nox, Nym, Helios Verified mode on mainnet, the swap page, Arkiv
+  labels, and a full create → fund → swap both ways run (97 of 99 calls through
+  Anon-RPC). Zero CSP violations and zero console errors.
+- **Code splitting:** pages are route-level `lazy`; wallet crypto (scrypt, BIP-39)
+  loads on create/unlock; the Arkiv SDK loads on the first label lookup; Helios
+  (4.3 MB with inline WASM) loads only in Verified mode; core is marked
+  `sideEffects: false`. The first load is 288 kB gzip (850 kB raw), down from
+  342 kB gzip in one 1 MB bundle. What remains is mostly React, viem and the
+  transport, which Overview needs for live chain data.
+- **workerd's postinstall is explicitly denied** (`allowBuilds: workerd: false`).
+  It only re-checks or re-downloads the platform binary, which pnpm already
+  installs as an optional dependency, and `wrangler dev` works without it.
