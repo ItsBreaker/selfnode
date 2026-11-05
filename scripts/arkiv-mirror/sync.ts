@@ -8,7 +8,7 @@
  * Reads are always scoped by owner (our mirror wallet).
  */
 import { ExpirationTime } from "@arkiv-network/sdk";
-import { asc, gt } from "@arkiv-network/sdk/query";
+import { and, asc, eq, gt } from "@arkiv-network/sdk/query";
 import { key as keyValue, type Schema } from "@arkiv-network/sdk/schema";
 import { createHash } from "node:crypto";
 import { formatEther, type Hex } from "viem";
@@ -19,7 +19,10 @@ export const EXTEND_BELOW_DAYS = 45;
 const BLOCK_SECONDS = 2; // Rabdi block time (per the SDK's ExpirationTime docs)
 const BATCH = 40; // ~11M gas at 90 days; the per-tx cap is 2^24
 
-export type Values = Record<string, string | number | bigint | undefined>;
+export type Values = Record<
+  string,
+  string | number | bigint | Uint8Array | { type: string; value: unknown } | undefined
+>;
 export interface Planned {
   rowKey: string;
   values: Values; // includes provenance fields
@@ -32,7 +35,18 @@ export const hashContent = (v: Values) =>
       JSON.stringify(
         Object.keys(v)
           .sort()
-          .map((k) => [k, typeof v[k] === "bigint" ? String(v[k]) : v[k]]),
+          .map((k) => {
+            const x = v[k];
+            return [
+              k,
+              x instanceof Uint8Array
+                ? `bytes:${Buffer.from(x).toString("hex")}`
+                : typeof x === "bigint"
+                  ? String(x)
+                  : x,
+            ];
+          }),
+        (_, val: unknown) => (typeof val === "bigint" ? val.toString() : val),
       ),
     )
     .digest("hex");
@@ -43,7 +57,7 @@ interface Existing {
   expiresAt: bigint;
 }
 
-async function existing(schema: Schema): Promise<Map<string, Existing>> {
+async function existing(schema: Schema, source: string): Promise<Map<string, Existing>> {
   const out = new Map<string, Existing>();
   let last: Hex | null = null;
   for (;;) {
@@ -53,7 +67,11 @@ async function existing(schema: Schema): Promise<Map<string, Existing>> {
       .ownedBy(account.address)
       .orderBy(asc("$key"))
       .limit(100);
-    if (last) q = q.where(gt("$key", keyValue(last)) as never);
+    q = q.where(
+      (last
+        ? and(eq("source", source), gt("$key", keyValue(last)))
+        : eq("source", source)) as never,
+    );
     const page = (await q.fetch()) as unknown as {
       entities: {
         $key: Hex;
@@ -91,7 +109,9 @@ export async function sync(
   rows: Planned[],
   opts: { dryRun: boolean; minBalanceWei: bigint; maxSpendWei: bigint },
 ): Promise<SyncReport> {
-  const have = await existing(schema);
+  // Scope by owner AND source: several sources can share a schema (e.g. tokens).
+  const source = String(rows[0]?.values.source ?? "");
+  const have = rows.length ? await existing(schema, source) : new Map<string, Existing>();
   const head = await reader.getBlockNumber();
   const extendBelow = BigInt((EXTEND_BELOW_DAYS * 86_400) / BLOCK_SECONDS);
   const expiration = ExpirationTime.fromDays(LIFETIME_DAYS);
@@ -170,7 +190,8 @@ export async function sync(
         const msg = redact(
           e instanceof Error ? (e.message.split("\n")[0] ?? e.message) : String(e),
         );
-        if (attempt >= 4)
+        const permanent = /Invalid|exceeds|SchemaMismatch|column/i.test(msg); // retrying can't fix bad data
+        if (permanent || attempt >= 4)
           throw new Error(`batch ${i / BATCH + 1} failed after ${attempt} attempts: ${msg}`, {
             cause: e,
           });

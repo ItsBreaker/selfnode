@@ -82,8 +82,22 @@ class Drops {
   }
 }
 
-const clean = (s: unknown, max = 120) =>
-  typeof s === "string" ? s.replace(/\s+/g, " ").trim().slice(0, max) : "";
+/** Arkiv `str` values are capped at 128 UTF-8 bytes. Trim to fit without splitting a character. */
+export function fitStr(s: string, maxBytes = 128): string {
+  const enc = new TextEncoder();
+  if (enc.encode(s).length <= maxBytes) return s;
+  let out = "";
+  for (const ch of s) {
+    if (enc.encode(`${out}${ch}…`).length > maxBytes) break;
+    out += ch;
+  }
+  return `${out}…`;
+}
+/** Collapse whitespace and cap length. By default the result also fits a 128-byte `str`. */
+const clean = (s: unknown, max = 120, fitBytes = true) => {
+  const t = typeof s === "string" ? s.replace(/\s+/g, " ").trim().slice(0, max) : "";
+  return fitBytes ? fitStr(t) : t;
+};
 /** Valid hex address; mixed-case must pass its EIP-55 checksum. */
 function addr(a: unknown): string | null {
   if (typeof a !== "string" || !isAddress(a, { strict: false })) return null;
@@ -229,7 +243,7 @@ export async function readLabels(commit: string): Promise<Dataset<LabelRow>> {
       address: a,
       name: "Flagged by MyEtherWallet's list",
       category: "flagged",
-      note: clean(d.comment, 240),
+      note: clean(d.comment, 1000, false), // stored as bytes, so no 128-byte cap
     });
   }
   const contracts = JSON.parse(
@@ -367,4 +381,20 @@ export async function readSignatures(
     });
   });
   return { source: SOURCES.fourbytes.repo, license: "MIT", commit, rows, drops: drops.list() };
+}
+
+/** The source's LICENSE at the pinned commit, and its copyright line. */
+export async function readLicense(
+  repo: string,
+  commit: string,
+): Promise<{ text: string; copyright: string }> {
+  const text = (await raw(repo, commit, "LICENSE")) ?? "";
+  const copyright =
+    text
+      .split("\n")
+      .find((l) => /^copyright/i.test(l.trim()))
+      ?.trim() ?? "";
+  if (!/MIT License/i.test(text) || !copyright)
+    throw new Error(`${repo}@${commit}: LICENSE isn't the expected MIT text`);
+  return { text: text.trim(), copyright };
 }

@@ -10,7 +10,7 @@
 import { createPublicClient } from "@arkiv-network/sdk";
 import { rabdi } from "@arkiv-network/sdk/chains";
 import { and, eq, or } from "@arkiv-network/sdk/query";
-import { http, type Address } from "viem";
+import { hexToString, http, isHex, type Address } from "viem";
 import { LabelSchema, SigSchema, TokenSchema } from "./schema.js";
 
 export interface MirrorProvenance {
@@ -45,6 +45,13 @@ export const sourceUrl = (p: MirrorProvenance) =>
   `https://github.com/${p.source}/tree/${p.sourceCommit}`;
 
 const CHUNK = 25;
+/** `bytes` columns come back as hex; decode UTF-8 text. */
+const text = (v: { value: unknown } | undefined): string => {
+  const x = v?.value;
+  if (typeof x === "string") return isHex(x) ? hexToString(x) : x;
+  if (x instanceof Uint8Array) return new TextDecoder().decode(x);
+  return "";
+};
 type V = { value: string | number };
 
 export class MirrorReader {
@@ -132,17 +139,27 @@ export class MirrorReader {
     }
     const results = new Map<string, unknown>();
     try {
+      // All chunks in parallel: through an anonymity network each round trip is ~1-2 s.
+      const jobs: Promise<void>[] = [];
       for (const [chain, addrs] of addrByChain) {
         for (let i = 0; i < addrs.length; i += CHUNK) {
-          const found = await this.#queryAddresses(chain, addrs.slice(i, i + CHUNK));
-          for (const a of addrs.slice(i, i + CHUNK))
-            results.set(`addr:${chain}:${a}`, found.get(a) ?? null);
+          const chunk = addrs.slice(i, i + CHUNK);
+          jobs.push(
+            this.#queryAddresses(chain, chunk).then((found) => {
+              for (const a of chunk) results.set(`addr:${chain}:${a}`, found.get(a) ?? null);
+            }),
+          );
         }
       }
       for (let i = 0; i < sigs.length; i += CHUNK) {
-        const found = await this.#querySigs(sigs.slice(i, i + CHUNK));
-        for (const s of sigs.slice(i, i + CHUNK)) results.set(`sig:${s}`, found.get(s) ?? null);
+        const chunk = sigs.slice(i, i + CHUNK);
+        jobs.push(
+          this.#querySigs(chunk).then((found) => {
+            for (const sel of chunk) results.set(`sig:${sel}`, found.get(sel) ?? null);
+          }),
+        );
       }
+      await Promise.all(jobs);
     } catch (e) {
       for (const [, waiters] of pending) for (const w of waiters) w.reject(e);
       return;
@@ -209,7 +226,8 @@ export class MirrorReader {
       const category = String(l.category.value) as MirrorLabel["category"];
       if (prev && prev.category === "token" && category !== "flagged") continue; // keep token metadata unless flagged
       const label: MirrorLabel = { name: String(l.name.value), category, ...prov(l) };
-      if (l.note?.value) label.note = String(l.note.value);
+      const note = text(l.note);
+      if (note) label.note = note;
       out.set(String(l.address.value), label);
     }
     return out;
@@ -233,7 +251,7 @@ export class MirrorReader {
     }[]) {
       out.set(String(s.selector.value), {
         selector: String(s.selector.value),
-        texts: String(s.text.value).split(";").filter(Boolean),
+        texts: text(s.text).split(";").filter(Boolean),
         source: String(s.source.value),
         license: String(s.license.value),
         sourceCommit: String(s.sourceCommit.value),

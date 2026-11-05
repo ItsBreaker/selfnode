@@ -7,6 +7,7 @@
  *          [--max-sigs 5000] [--sample-blocks 300] [--reserve 2] [--max-spend 5]
  */
 import {
+  DatasetSchema,
   LabelSchema,
   SigSchema,
   TokenSchema,
@@ -14,13 +15,15 @@ import {
   sigKey,
   tokenKey,
 } from "@selfnode/core/labels/schema";
+import { u64 } from "@arkiv-network/sdk/schema";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { formatEther, parseEther } from "viem";
+import { formatEther, parseEther, stringToBytes } from "viem";
 import { account, reader, redact } from "./client.js";
 import {
   SOURCES,
   headCommit,
   readLabels,
+  readLicense,
   readSignatures,
   readTokens,
   type Dataset,
@@ -71,6 +74,21 @@ try {
   };
   console.log("Pinned commits:", commits);
   const reports: SyncReport[] = [];
+  const notices: Planned[] = [];
+  /** One notice entity per (dataset, source): the MIT notice travels with the data. */
+  const notice = async (dataset: string, ds: Dataset<unknown>) => {
+    const lic = await readLicense(ds.source, ds.commit);
+    notices.push(
+      plan(ds, `dataset:${dataset}:${ds.source.toLowerCase()}`, {
+        type: "dataset",
+        dataset,
+        copyright: lic.copyright,
+        licenseText: stringToBytes(lic.text),
+        url: `https://github.com/${ds.source}/tree/${ds.commit}`,
+        rowCount: u64(BigInt(ds.rows.length)),
+      }),
+    );
+  };
   const meta: Record<string, unknown> = { commits };
 
   if (only.has("tokens")) {
@@ -95,6 +113,7 @@ try {
           maxSpendWei,
         }),
       );
+      await notice("tokens", ds);
       meta[`tokens:${ds.source}`] = { rows: ds.rows.length, drops: ds.drops };
     }
   }
@@ -113,12 +132,13 @@ try {
         name: l.name,
         category: l.category,
       };
-      if (l.note) v.note = l.note;
+      if (l.note) v.note = stringToBytes(l.note);
       return plan(ds, labelKey(l.chainId, l.address), v);
     });
     reports.push(
       await sync("labels", LabelSchema as never, rows, { dryRun, minBalanceWei, maxSpendWei }),
     );
+    await notice("labels", ds);
     meta.labels = { rows: ds.rows.length, drops: ds.drops };
   }
   if (only.has("sigs")) {
@@ -140,19 +160,31 @@ try {
       plan(ds, sigKey(s.selector), {
         type: "sig",
         selector: s.selector,
-        text: s.texts.join(";"),
+        text: stringToBytes(s.texts.join(";")),
         rank: s.rank,
       }),
     );
     reports.push(
       await sync("signatures", SigSchema as never, rows, { dryRun, minBalanceWei, maxSpendWei }),
     );
+    await notice("sigs", ds);
     meta.sigs = {
       rows: ds.rows.length,
       drops: ds.drops,
       sample: { ...usage, counts: undefined },
       coverage,
     };
+  }
+
+  if (notices.length) {
+    console.log("\nDataset notices (licence text on Arkiv)");
+    reports.push(
+      await sync("dataset notices", DatasetSchema as never, notices, {
+        dryRun,
+        minBalanceWei,
+        maxSpendWei,
+      }),
+    );
   }
 
   const end = await reader.getBalance({ address: account.address });
