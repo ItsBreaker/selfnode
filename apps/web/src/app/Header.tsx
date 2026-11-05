@@ -3,24 +3,19 @@ import type { ReactNode } from "react";
 import { NavLink } from "react-router";
 import { Kbd } from "../ui/Kbd";
 import { cx } from "../ui/cx";
-import { Wordmark } from "./Wordmark";
+import { NAV } from "./nav";
 
-export const NAV = [
-  { to: "/", label: "Overview", end: true },
-  { to: "/wallet", label: "Wallet" },
-  { to: "/explore", label: "Explore" },
-  { to: "/swap", label: "Swap" },
-  { to: "/node", label: "Node" },
-  { to: "/privacy", label: "Privacy" },
-  { to: "/settings", label: "Settings" },
-] as const;
+export { NAV };
+import { Wordmark } from "./Wordmark";
 
 export function Header({
   modeIndicator,
   themeToggle,
+  mobileNav,
 }: {
   modeIndicator: ReactNode;
   themeToggle: ReactNode;
+  mobileNav?: ReactNode;
 }) {
   return (
     <header className="border-b border-border bg-bg">
@@ -33,7 +28,7 @@ export function Header({
             <NavLink
               key={n.to}
               to={n.to}
-              end={"end" in n ? n.end : false}
+              end={n.end}
               className={({ isActive }) =>
                 cx(
                   "rounded-sm px-2.5 py-1.5 text-small font-medium transition-colors duration-150",
@@ -69,6 +64,7 @@ export function Header({
           </button>
           {modeIndicator}
           <div className="hidden md:block">{themeToggle}</div>
+          {mobileNav}
         </div>
       </div>
     </header>
