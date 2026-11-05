@@ -78,8 +78,16 @@ a direct EIP-1193 shim over PublicNode (the one disclosed non-anonymised read).
   chains. Its specifier lives on Sepolia, so its bootstrap read goes to a Sepolia RPC.
 - JSON-RPC batching works through the worker, so batch and multicall reads.
 - Only a boolean comparing exit IPs was recorded; our own IP was never written down.
-- **`eth_sendRawTransaction`: pending** (waiting for the Sepolia test wallet to
-  be funded). The key will sign in Node; only the signed raw tx goes to the browser.
+- **`eth_sendRawTransaction` works through Anon-RPC** (`apps/web/spikes/broadcast.spike.ts`).
+  Two 1-wei self-transfers were signed in Node (`scripts/spikes/sign-sepolia-tx.ts`);
+  only the signed raw tx reached the browser. Broadcast and receipt polling both
+  went through the worker, with no direct fallback in the code path.
+  - Nox: broadcast 1.9 s, receipt after 7.4 s, tx
+    `0x41f65cbe8b3296b324b566939dc86a1c8749adb6c5b894fb069b4b4ae786f109` (block 12071773).
+  - Nym: broadcast 13.1 s, receipt after 24.2 s, tx
+    `0x968af0d78ffb0a95b04f1ab44927e63667b116a439d35ccab9fba8a86c10b51a` (block 12071776).
+  - The signing helper read nonce and fees directly from PublicNode (spike only,
+    throwaway key). The app reads them through Anon-RPC.
 
 ### Helios (`apps/web/spikes/helios.spike.ts`, `helios-node.spike.ts`)
 
@@ -117,7 +125,16 @@ a direct EIP-1193 shim over PublicNode (the one disclosed non-anonymised read).
   `http(undefined, { fetchFn: worker.fetch })` via Nox, first query 2.2 s, then 1.6 s.
   Arkiv reads will count toward the Anon-RPC traffic share.
 - A query needs at least one predicate; `ownedBy(owner)` satisfies this.
-- **Write + read-back: pending** (mirror wallet needs Rabdi tGLM).
+- **Write + keyless read-back works** (`scripts/spikes/arkiv-write.ts`). Entity
+  `0x1127a6e7a79ccf8ab9af62ffd3787060eb9792b80de7b71860429129d975f9e2`, tx
+  `0x3f244b78189e50b5f8d97640728990b80f239a63798517501453ca687f405f97`,
+  3.3 s including inclusion; `getEntity` and the `ownedBy` query (keyless) ~300 ms each.
+- **Access key goes in the `X-API-KEY` header, not the URL path.** We use
+  `rabdi({ accessKey: "" })` (keyless URL) plus
+  `http(undefined, { fetchOptions: { headers: { "X-API-KEY": key } } })`. Checked:
+  the real key raises `ratelimit` from 2000 to 5000 and adds an
+  `arkiv-quota-used-percent` header, and a bogus key gets 401, so the header is
+  honoured. The key is redacted from any error output and never printed.
 
 ### Uniswap (`scripts/spikes/uniswap-quote.ts`)
 
