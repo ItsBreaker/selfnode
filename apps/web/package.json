@@ -1,0 +1,20 @@
+{
+  "name": "@selfnode/web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@a16z/helios": "0.12.0",
+    "@anon-rpc/browser-harness": "0.4.0",
+    "@arkiv-network/sdk": "1.0.1",
+    "@selfnode/core": "workspace:*",
+    "viem": "2.57.16"
+  },
+  "devDependencies": {
+    "vite": "8.3.6"
+  }
+}
