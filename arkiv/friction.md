@@ -21,3 +21,24 @@ Kept as we go. Honest notes, newest last.
   in the SDK README. We use the header so the key never appears in URLs or logs.
   A `rabdi({ accessKey, via: "header" })` option would help.
 - Writes are fast: `createEntity` resolved in 3.3 s including block inclusion.
+- `key` is a reserved attribute name (the SDK throws `InvalidAttributeNameError`).
+  We use `rowKey`. A list of reserved names in the README would help, since `key`
+  is the most natural name for an upsert key.
+- `str` values are capped at **128 UTF-8 bytes**. The error is excellent: it names
+  the value and suggests a `bytes` column. But the limit isn't in the README's
+  schema section, so we only found it mid-import, on a 134-byte scam-list
+  comment. We moved long text (notes, signature candidates, licence text) to
+  `bytes`, and byte-fit the short `str` fields.
+- Integer columns need explicit wrappers: a JS `bigint` is treated as `u256`, so a
+  `u64` column needs `u64(...)`. Clear error, easy fix. Worth one line in the docs.
+- No `IN` operator; we batch lookups with `or(eq(...), ...)` in chunks of 25.
+  Works well.
+- Good: `executeBatch` (creates, patches and extensions in one transaction) makes
+  idempotent mirroring easy and cheap. The SDK validates every value **before**
+  sending, so bad rows cost no gas.
+- Good: costs are low and predictable. We measured them with a probe
+  (`scripts/arkiv-mirror/cost-probe.ts`): create ≈ 0.00027 tGLM per entity at a
+  90-day lifetime, extend ≈ 0.00007, patch ≈ 0.00002. A table of this kind in the
+  docs would help builders budget before they start.
+- Pagination by `$key` (`orderBy(asc("$key"))` + `gt("$key", key(last))`) is
+  documented clearly and worked first time.
