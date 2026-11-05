@@ -23,6 +23,7 @@ import {
   type Hex,
   type TransactionSerializableEIP1559,
 } from "viem";
+import { labelUrl, useMirror } from "../../state/labels";
 import { usePublicClient, useSelfnode } from "../../state/selfnode";
 import { useWallet } from "../../state/wallet";
 import { activityStore } from "../../storage/db";
@@ -58,6 +59,7 @@ export function SendFlow() {
   const { settings } = useSelfnode();
   const { session, address } = useWallet();
   const client = usePublicClient();
+  const mirror = useMirror();
   const qc = useQueryClient();
   const chain = chains[settings.chain];
   const assets: Asset[] = [
@@ -114,7 +116,18 @@ export function SendFlow() {
       amount: parsed,
     };
     try {
-      const facts = await gatherSendFacts(client, req);
+      // Recipient label from the Arkiv mirror (through Anon-RPC); a lookup failure never blocks a send.
+      const facts = await gatherSendFacts(client, req, async (a) => {
+        const l = await mirror.label(chain.id, a);
+        if (!l) return null;
+        return {
+          name: l.name,
+          category: l.category,
+          source: l.source,
+          url: labelUrl(l),
+          ...(l.note ? { note: l.note } : {}),
+        };
+      });
       const { preview, tx } = assessSend(req, facts);
       setPhase({ k: "review", req, preview, tx });
     } catch (e) {
