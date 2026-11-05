@@ -3,3 +3,4 @@ export * from "./vault.js";
 export * from "./session.js";
 export * from "./signer.js";
 export * from "./send.js";
+export * from "./tx.js";
