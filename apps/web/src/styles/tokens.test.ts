@@ -50,6 +50,8 @@ const PAIRS: [string, string, number][] = [
   ["on-accent", "accent", 4.5],
   ["on-accent", "accent-hover", 4.5],
   ["private", "private-soft", 4.5],
+  ["private", "surface", 4.5],
+  ["private", "bg", 4.5],
   ["verified", "verified-soft", 4.5],
   ["verified", "surface", 4.5],
   ["warning", "warning-soft", 4.5],

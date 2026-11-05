@@ -1,7 +1,8 @@
 /*
  * Selfnode design tokens. Every colour in the UI comes from here.
- * Neutral warm base, ONE accent (teal, which also marks Private mode, the
- * default), and semantic colours for verified / warning / danger / my-node.
+ * Neutral warm base, ONE neutral "ink" accent for actions and links, and
+ * meaningful colours only for states: private (teal), verified (blue),
+ * my node (graphite), warning (amber), danger (red).
  * Contrast is enforced by src/styles/tokens.test.ts (WCAG AA).
  */
 :root,
@@ -15,13 +16,13 @@
   --text: #1a1a17;
   --muted: #5c5950;
 
-  --accent: #0b5f5a;
+  --accent: #22262d;
   --on-accent: #ffffff;
-  --accent-soft: #e1eeec;
-  --accent-hover: #084b47;
+  --accent-soft: #e7e6e1;
+  --accent-hover: #3a3f48;
 
-  --private: var(--accent);
-  --private-soft: var(--accent-soft);
+  --private: #0b5f5a;
+  --private-soft: #e1eeec;
   --verified: #2a5594;
   --verified-soft: #e4ebf6;
   --mynode: #45433d;
@@ -32,7 +33,7 @@
   --danger-soft: #f8e3e0;
   --on-danger: #ffffff;
 
-  --focus: #0b5f5a;
+  --focus: #22262d;
   --shadow-pop: 0 1px 2px rgb(26 26 23 / 0.06), 0 8px 24px rgb(26 26 23 / 0.08);
 }
 
@@ -46,13 +47,13 @@
   --text: #eceae4;
   --muted: #a3a097;
 
-  --accent: #5bc0b4;
-  --on-accent: #0d1f1d;
-  --accent-soft: #17302d;
-  --accent-hover: #7dd0c6;
+  --accent: #eceae4;
+  --on-accent: #121311;
+  --accent-soft: #2c2d29;
+  --accent-hover: #d4d1c8;
 
-  --private: var(--accent);
-  --private-soft: var(--accent-soft);
+  --private: #5bc0b4;
+  --private-soft: #17302d;
   --verified: #8eb4ee;
   --verified-soft: #1b2638;
   --mynode: #c9c6bd;
@@ -63,7 +64,7 @@
   --danger-soft: #3a1a17;
   --on-danger: #1f0b09;
 
-  --focus: #5bc0b4;
+  --focus: #eceae4;
   --shadow-pop: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.35);
 }
 
