@@ -115,6 +115,19 @@ export class TransportRouter {
   }
 
   /**
+   * A fetch through the active anonymity network, counted as "anon-rpc". For
+   * non-Ethereum JSON-RPC endpoints we read in every mode (e.g. Arkiv labels).
+   */
+  anonFetch(): typeof fetch {
+    const s = this.#settings;
+    const inner = this.pool.fetchFor(s.anonNetwork, {
+      config: s.anonConfig?.[s.anonNetwork],
+      allowInsecure: s.allowInsecureReferenceWorker === true,
+    });
+    return countingFetch(inner, this.counter, "anon-rpc");
+  }
+
+  /**
    * A DIRECT (non-anonymised) transport for one user-approved action. The
    * literal `true` type makes accidental use a compile error.
    */
