@@ -244,3 +244,41 @@ update when ESLint ships a patched range.
   (`0x41209be870e500c3d5e9929606393b0f5def955e059459ed0d739a4c933af54e`).
   Traffic for the session: 24 requests through Anon-RPC, 2 bootstrap reads,
   0 direct.
+
+## Phase 3: explorer and Arkiv labels
+
+- **Datasets (approved):** MyEtherWallet/ethereum-lists (contract labels + scam
+  list, and Sepolia tokens), ethereum-lists/tokens (mainnet tokens),
+  ethereum-lists/4bytes (capped). All MIT, no Sourcify. Rejected: Etherscan-scraped,
+  GPL and unlicensed sources (see `arkiv/data-quality.md`).
+- **Provenance on every entity:** `source`, `license`, `sourceCommit`, plus a
+  `selfnode-dataset` entity per source holding the copyright line and full MIT
+  text, so the notice travels with the data on Arkiv. Licence texts are also in
+  `arkiv/licenses/`.
+- **`rowKey` instead of `key`**, because Arkiv reserves `key`. That's a deviation
+  from the brief's schema.
+- **Long text in `bytes`** (Arkiv `str` caps at 128 bytes); short `str` fields are
+  byte-fitted without splitting characters.
+- **Lifetime 90 days**, extended when under 45 days remain. This is longer than the
+  brief's "e.g. 30 days", so the data outlives judging, and costs about 1.5× a
+  30-day create.
+- **Function names ranked by usage:** standards first, then by selector frequency
+  in the latest 300 mainnet blocks. 4bytes covered 444 of 2,777 sampled selectors
+  (68.4% of calls). The cap of 5,000 didn't bind. Four v4 selectors are missing
+  from 4bytes; Selfnode decodes its own Uniswap calls from ABIs in code.
+- **Scam list wording:** "Flagged by MyEtherWallet's list", with the list's note,
+  a link to the exact source commit, and "lists can include mistakes". In the
+  wallet it's a danger the user must acknowledge, but the decision is theirs. A
+  flagged address never gets the blue "verified label" tick.
+- **Reads:** keyless, always `ownedBy(mirror)`, through Anon-RPC in every mode
+  (`TransportRouter.anonFetch()`, counted as `anon-rpc`), batched per tick with
+  chunks running in parallel, and cached in IndexedDB for 24 hours (including
+  misses).
+- **Explorer:** search (address, tx hash, block number, ENS through the active
+  route), ⌘K, and address, transaction and block views. Address history is not
+  shown: a standard RPC can't list it and we don't run an indexer. The UI says so.
+- **EIP-7708-style native transfer logs:** Sepolia emits a `Transfer` log from
+  `0xffff…fffe` for plain ETH transfers. The transaction view shows these as ETH.
+- **Measured (browser, Nox, 2026-11-06):** a 50-row mainnet block view with
+  labels and decoded methods took ~10 s cold; a flagged-address page took ~7 s.
+  0 direct requests.
