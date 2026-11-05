@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
-    "keys:generate": "tsx keys/generate.ts"
+    "keys:generate": "tsx keys/generate.ts",
+    "fund": "tsx fund-sepolia.ts"
   },
   "dependencies": {
     "@arkiv-network/sdk": "1.0.1",
