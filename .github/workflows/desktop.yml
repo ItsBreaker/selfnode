@@ -1,0 +1,62 @@
+name: Desktop builds
+
+# Unsigned macOS (universal .dmg) and Windows (NSIS .exe) builds, uploaded as
+# workflow artifacts with SHA-256 checksums. No GitHub Release is created.
+on:
+  push:
+    branches: [main]
+    paths:
+      [
+        "apps/desktop/**",
+        "apps/web/**",
+        "packages/core/**",
+        "pnpm-lock.yaml",
+        ".github/workflows/desktop.yml",
+      ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: dist:mac
+          - os: windows-latest
+            target: dist:win
+    runs-on: ${{ matrix.os }}
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false" # unsigned
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @selfnode/web build
+      - run: pnpm --filter @selfnode/desktop build
+      - run: pnpm --filter @selfnode/desktop run ${{ matrix.target }}
+      - name: SHA-256 checksums
+        shell: bash
+        working-directory: apps/desktop/release
+        run: |
+          shopt -s nullglob
+          files=(*.dmg *.exe)
+          if command -v sha256sum >/dev/null; then sha256sum "${files[@]}" > SHA256SUMS.txt; else shasum -a 256 "${files[@]}" > SHA256SUMS.txt; fi
+          cat SHA256SUMS.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: selfnode-desktop-${{ matrix.os }}
+          path: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.exe
+            apps/desktop/release/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
