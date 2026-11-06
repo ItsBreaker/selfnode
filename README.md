@@ -27,8 +27,11 @@ Live site, Private mode (every request through Nox), Sepolia.
   <img src="docs/screenshots/transaction-dark-mobile.png" width="190" alt="Decoded transaction on a phone, dark theme, with the function name from Arkiv">
 </p>
 
+![Explore: live latest blocks and transactions, methods decoded from Arkiv](docs/submission/1-explore-latest-blocks-and-transactions.png)
+
 All 16 (overview, wallet, swap and a decoded transaction; light and dark;
-desktop and mobile) are in [`docs/screenshots/`](docs/screenshots/).
+desktop and mobile) are in [`docs/screenshots/`](docs/screenshots/), and the six
+submission images in [`docs/submission/`](docs/submission/).
 
 ## What works today
 
