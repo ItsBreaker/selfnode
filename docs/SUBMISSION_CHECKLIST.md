@@ -36,10 +36,10 @@ Built from section 3 of the build brief. Tick as completed.
 - [x] Every non-Anon-RPC exception listed and explained (e.g. bootstrap specifier read)
 - [x] No third-party trackers or analytics
 - [x] README CROPS section
-- [x] Prepared (not opened) PR to `ethereum/anon-rpc` adopters list, in `docs/anon-rpc-adopters-entry.md`. **Jayden: approve before opening.**
+- [x] PR to the `ethereum/anon-rpc` adopters list opened: https://github.com/ethereum/anon-rpc/pull/16
 
 ## Demo and submission
 
 - [x] `docs/DEMO_SCRIPT.md` (3-minute path)
 - [ ] **Jayden:** record the demo video (add its timestamp to `/arkiv/swarm.md` if the Swarm bonus is done)
-- [ ] **Jayden:** decide on a public deployment (Cloudflare). Not deployed; the `wrangler` config and security headers aren't written yet.
+- [x] Deployed: https://selfnode.jhfe.workers.dev/ (Cloudflare Worker, strict security headers, verified live)

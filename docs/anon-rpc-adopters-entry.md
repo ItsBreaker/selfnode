@@ -16,4 +16,4 @@ after the site was deployed.
     },
 ```
 
-PR title: `adopters: add Selfnode (wallet)`.
+PR: https://github.com/ethereum/anon-rpc/pull/16 (`adopters: add Selfnode (wallet)`).
