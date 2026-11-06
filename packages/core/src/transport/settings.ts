@@ -65,6 +65,7 @@ export function parseTransportSettings(raw: unknown): TransportSettings {
     }
     if (Object.keys(h).length) s.helios = h;
   }
+  if (raw.anonFailover === false) s.anonFailover = false; // default (undefined) = on
   return s;
 }
 

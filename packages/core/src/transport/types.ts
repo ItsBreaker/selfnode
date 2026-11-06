@@ -15,6 +15,11 @@ export interface TransportSettings {
   myNodeUrl?: Partial<Record<ChainKey, string>>;
   /** Verified mode: user-supplied Helios upstreams per chain. */
   helios?: Partial<Record<ChainKey, { executionRpc: string; consensusRpc: string }>>;
+  /**
+   * Switch to the next anonymity network (never to direct) when the chosen one
+   * fails. Default on; false turns it off.
+   */
+  anonFailover?: boolean;
   /** Allow the passthrough worker. Testing only: it does NOT anonymise. */
   allowInsecureReferenceWorker?: boolean;
 }

@@ -667,3 +667,32 @@ Headers`, `Waiting for peers...`) are strings in the shipped 2.2.2 binary;
 - **The in-app archive ignores it:** `loadArchive` only takes the `tokens`,
   `labels` and `sigs` snapshot entities (deployed before the `web` entity was
   written, so the live archive never saw it).
+
+## Anonymity-network failover (2026-11-06)
+
+- **When:** a no-exit / tunnel error (e.g. `NoTunnelExitError`), a worker that
+  fails to boot, 2 failures in a row, or no answer within 20 s. The 20 s cutoff
+  only applies when there's a network left to switch to; otherwise the request
+  keeps the transport's normal 45 s timeout (Nym's first answer took about two
+  minutes tonight, so cutting it off would make it unusable).
+- **Where to:** the next network in Nox → Nym → Tor, starting from the user's
+  choice. Tor only if a Tor gateway is configured (the public demo gateway is
+  down). A network that already failed this session isn't tried again
+  automatically. **Never to a direct connection.**
+- **Reads retry once on the new network; broadcasts don't** (a signed
+  transaction may already have gone out), they fail and the next one uses the new
+  network.
+- **Visible:** a notice ("Nox unavailable, switched to Nym"), the route shows
+  "via Nym (Nox unavailable)", the connection menu lists each switch with its
+  reason and offers "Try Nox again", and Settings → Traffic counts the switches.
+- **Pre-warm:** once the first network answers, the next one boots in the
+  background, so a switch is quick. That's one extra disclosed bootstrap read
+  per session (counted).
+- **Setting:** Settings → Anonymity network → "Switch networks automatically",
+  on by default.
+- **Tested:** core unit tests (no-exit, boot failure, timeout, two failures, Tor
+  only when configured, no broadcast retry, never direct, off switch, retry) and
+  in the browser with Nox forced to fail
+  (`localStorage["selfnode:debug-fail-networks"] = "nox"`, a test aid that can
+  only make a network fail): switched in 0.5 s, Ready via Nym, live blocks, 0
+  direct requests; with the setting off it stayed Unavailable.

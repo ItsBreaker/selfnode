@@ -16,7 +16,7 @@ import { useLocation } from "react-router";
 import { Page } from "../app/AppShell";
 import { MODE_COPY } from "../content/modes";
 import { useSwarmArchive } from "../state/labels";
-import { useSelfnode, useTraffic } from "../state/selfnode";
+import { useFailover, useSelfnode, useTraffic } from "../state/selfnode";
 import { useTheme } from "../theme";
 import { Button } from "../ui/Button";
 import { Callout } from "../ui/Callout";
@@ -126,6 +126,28 @@ export function Settings() {
           {settings.anonNetwork === "tor-js" && (
             <TorGateway settings={settings} setSettings={setSettings} />
           )}
+          <label className="mt-4 flex min-h-11 items-start gap-3 text-small">
+            <input
+              type="checkbox"
+              className="mt-1 size-4 accent-[var(--accent)]"
+              checked={settings.anonFailover !== false}
+              onChange={(e) => {
+                const next = { ...settings };
+                if (e.target.checked) delete next.anonFailover;
+                else next.anonFailover = false;
+                setSettings(next);
+              }}
+            />
+            <span>
+              <span className="font-medium">Switch networks automatically if this one fails</span>
+              <span className="block text-muted">
+                On a missing exit, a worker that won&apos;t start, two failures in a row or no
+                answer in 20 s, Selfnode moves to the next anonymity network (Nox → Nym → Tor, if
+                you set a Tor gateway) and starts the backup in the background. Never to a direct
+                connection.
+              </span>
+            </span>
+          </label>
         </Panel>
 
         <EndpointSettings />
@@ -423,6 +445,7 @@ function SwarmArchive() {
 
 function TrafficSettings() {
   const { session, total, resetAll } = useTraffic();
+  const failover = useFailover();
   const sum = (s: Record<Route, number>) => ROUTES.reduce((n, r) => n + s[r], 0);
   const pct = (s: Record<Route, number>) =>
     sum(s) ? `${((s["anon-rpc"] / sum(s)) * 100).toFixed(1)}%` : "—";
@@ -488,6 +511,16 @@ function TrafficSettings() {
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="border-t border-border px-5 py-3 text-small">
+          <span className="font-medium">Network switches this session:</span>{" "}
+          <span className="font-mono tabular">{failover.events.length}</span>
+          {failover.events.map((e) => (
+            <span key={e.at} className="block text-caption text-muted">
+              {new Date(e.at).toLocaleTimeString()}: {anonNetworks[e.from].label} →{" "}
+              {anonNetworks[e.to].label} ({e.reason})
+            </span>
+          ))}
         </div>
         <div className="p-5">
           <Callout title="What's counted">

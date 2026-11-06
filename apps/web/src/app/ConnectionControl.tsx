@@ -2,11 +2,12 @@
  * The header's connection control: the live mode indicator plus a popover with
  * the route, latency, what this mode hides and doesn't, and a mode switch.
  */
-import { formatDuration, MODES, ROUTES, type Mode } from "@selfnode/core";
+import { anonNetworks, formatDuration, MODES, ROUTES, type Mode } from "@selfnode/core";
 import * as Popover from "@radix-ui/react-popover";
 import { Check, Minus } from "lucide-react";
 import { MODE_COPY } from "../content/modes";
-import { useConnection, useSelfnode, useTraffic } from "../state/selfnode";
+import { useConnection, useFailover, useSelfnode, useTraffic } from "../state/selfnode";
+import { Button } from "../ui/Button";
 import { Callout } from "../ui/Callout";
 import { MODE_LABEL, ModeIndicator, STATE_LABEL } from "../ui/ModeIndicator";
 import { Segmented } from "../ui/Segmented";
@@ -14,6 +15,7 @@ import { TextLink } from "../ui/TextLink";
 
 export function ConnectionControl() {
   const c = useConnection();
+  const failover = useFailover();
   const { settings, setSettings } = useSelfnode();
   const { session } = useTraffic();
   const total = ROUTES.reduce((n, r) => n + session[r], 0);
@@ -67,6 +69,32 @@ export function ConnectionControl() {
                 {share === null ? "no requests yet" : `${share}% of ${total} requests this session`}
               </dd>
             </dl>
+
+            {failover.events.length > 0 && (
+              <Callout
+                tone="warning"
+                title={`${anonNetworks[settings.anonNetwork].label} unavailable, switched to ${anonNetworks[failover.active].label}`}
+              >
+                <span className="flex flex-col gap-2">
+                  <span>
+                    {failover.events.map((e) => (
+                      <span key={e.at} className="block">
+                        {new Date(e.at).toLocaleTimeString()}: {anonNetworks[e.from].label} →{" "}
+                        {anonNetworks[e.to].label} ({e.reason})
+                      </span>
+                    ))}
+                    Still anonymised: Selfnode never switches to a direct connection.
+                  </span>
+                  {failover.active !== settings.anonNetwork && (
+                    <span>
+                      <Button size="sm" onClick={failover.retry}>
+                        Try {anonNetworks[settings.anonNetwork].label} again
+                      </Button>
+                    </span>
+                  )}
+                </span>
+              </Callout>
+            )}
 
             {c.direct > 0 && (
               <Callout

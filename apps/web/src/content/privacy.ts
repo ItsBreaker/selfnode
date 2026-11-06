@@ -153,6 +153,11 @@ export const EXCEPTIONS: { title: string; detail: string }[] = [
     detail: "Reads go to your node. Broadcasts still go through the anonymity network.",
   },
   {
+    title: "Not an exception: automatic network switching",
+    detail:
+      "If the chosen anonymity network fails (no exit, a worker that won't start, two failures in a row, or no answer in 20 s), Selfnode switches to the next one (Nox → Nym → Tor if you set a gateway) and says so. It never switches to a direct connection. The backup network starts in the background once the first works, which costs one more bootstrap read (counted). Turn it off in Settings.",
+  },
+  {
     title: "Direct requests you approve",
     detail:
       "If the anonymity network is down, Selfnode shows an error. It never retries directly on its own. A direct request only happens when you confirm it for that one action, and the connection indicator turns amber and counts it.",

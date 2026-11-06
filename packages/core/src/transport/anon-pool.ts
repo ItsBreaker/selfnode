@@ -199,7 +199,8 @@ export class AnonWorkerPool {
         : false;
       if (!ok) throw new WorkerCodeChangedError(change);
     };
-    entry.worker = Promise.resolve(
+    // .then(): a factory that throws synchronously still becomes a failed boot, not an exception here.
+    entry.worker = Promise.resolve().then(() =>
       this.factory({
         address: net.specifier,
         config: config ?? net.defaultConfig,

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createPublicClient } from "viem";
 import { TransportRouter } from "./router.js";
+import { anonNetworks } from "../config/anon-rpc.js";
 import { InsecureWorkerError } from "./errors.js";
 import type { AnonWorkerLike, Eip1193Like, TransportSettings } from "./types.js";
 import type { WorkerInit } from "./anon-pool.js";
@@ -44,7 +45,13 @@ function directFetchSpy() {
   return { fn, urls };
 }
 
-const base: TransportSettings = { mode: "private", chain: "sepolia", anonNetwork: "nox" };
+// Failover off for these tests (they pin exact request counts); it has its own tests below.
+const base: TransportSettings = {
+  mode: "private",
+  chain: "sepolia",
+  anonNetwork: "nox",
+  anonFailover: false,
+};
 const RAW_TX = "0x02f86b83aa36a7";
 
 describe("TransportRouter", () => {
@@ -302,5 +309,205 @@ describe("bootstrap read route", () => {
     await boot(r, "nym");
     expect(b.urls[0]).not.toContain("127.0.0.1");
     expect(r.counter.snapshot().bootstrap).toBe(1);
+  });
+});
+
+// --- Anonymity-network failover ---------------------------------------------
+describe("anonymity-network failover (never to direct)", () => {
+  const on: TransportSettings = { ...base, anonFailover: true };
+  /** Workers per network: "ok", "boot-fails", "no-exit" (every request throws), or "hang". */
+  function networks(kinds: Record<string, "ok" | "boot-fails" | "no-exit" | "hang">) {
+    const served: Record<string, string[]> = {};
+    const factory = vi.fn(async (init: WorkerInit): Promise<AnonWorkerLike> => {
+      await init.rpcProvider.request({ method: "eth_call", params: [] });
+      const id = Object.entries(SPEC).find(([, a]) => a === init.address)?.[0] ?? "?";
+      const kind = kinds[id] ?? "ok";
+      if (kind === "boot-fails") throw new Error("all gateways failed");
+      return {
+        ready: Promise.resolve(),
+        fetch: async (_input, i2) => {
+          if (kind === "no-exit")
+            throw Object.assign(new Error("no exits available"), { name: "NoTunnelExitError" });
+          if (kind === "hang") return new Promise<Response>(() => {});
+          const parsed = JSON.parse(String(i2?.body)) as { method: string } | { method: string }[];
+          (served[id] ??= []).push(...[parsed].flat().map((p) => p.method));
+          return rpcReply(i2?.body);
+        },
+        close: () => {},
+      };
+    });
+    return { factory, served };
+  }
+  const SPEC = {
+    nox: anonNetworks.nox.specifier,
+    nym: anonNetworks.nym.specifier,
+    "tor-js": anonNetworks["tor-js"].specifier,
+  };
+
+  it("switches Nox → Nym on a no-exit error, retries the read there, and records it", async () => {
+    const n = networks({ nox: "no-exit" });
+    const router = new TransportRouter(on, {
+      workerFactory: n.factory,
+      fetch: directFetchSpy().fn,
+    });
+    const events: string[] = [];
+    router.subscribeFailover(() => events.push(router.activeNetwork));
+    const client = createPublicClient({ transport: router.transport() });
+    expect(await client.getBlockNumber({ cacheTime: 0 })).toBe(16n);
+    expect(router.activeNetwork).toBe("nym");
+    expect(n.served.nym).toEqual(["eth_blockNumber"]);
+    expect(router.failovers).toEqual([
+      expect.objectContaining({
+        from: "nox",
+        to: "nym",
+        reason: expect.stringMatching(/no exits/),
+      }),
+    ]);
+    expect(events).toContain("nym");
+    expect(router.counter.snapshot()["direct-approved"]).toBe(0);
+  });
+
+  it("switches when the worker can't boot", async () => {
+    const n = networks({ nox: "boot-fails" });
+    const router = new TransportRouter(on, {
+      workerFactory: n.factory,
+      fetch: directFetchSpy().fn,
+    });
+    const client = createPublicClient({ transport: router.transport() });
+    expect(await client.getBlockNumber({ cacheTime: 0 })).toBe(16n);
+    expect(router.failovers[0]).toMatchObject({ from: "nox", to: "nym" });
+  });
+
+  it("switches after a request hangs past the timeout", async () => {
+    vi.useFakeTimers();
+    try {
+      const n = networks({ nox: "hang" });
+      const router = new TransportRouter(on, {
+        workerFactory: n.factory,
+        fetch: directFetchSpy().fn,
+      });
+      const f = router.anonFetch();
+      const p = f("https://rpc.example", {
+        method: "POST",
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_chainId" }),
+      });
+      await vi.advanceTimersByTimeAsync(20_001);
+      await expect(p).resolves.toBeInstanceOf(Response);
+      expect(router.failovers[0]).toMatchObject({
+        from: "nox",
+        to: "nym",
+        reason: "no answer within 20 s",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("doesn't cut a slow request off when failover is off", async () => {
+    vi.useFakeTimers();
+    try {
+      let release: (() => void) | undefined;
+      const factory = vi.fn(async (): Promise<AnonWorkerLike> => ({
+        ready: Promise.resolve(),
+        fetch: (_i, i2) => new Promise<Response>((r) => (release = () => r(rpcReply(i2?.body)))),
+        close: () => {},
+      }));
+      const router = new TransportRouter(base, {
+        workerFactory: factory,
+        fetch: directFetchSpy().fn,
+      });
+      const p = router.anonFetch()("https://rpc.example", {
+        method: "POST",
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_chainId" }),
+      });
+      await vi.advanceTimersByTimeAsync(30_000); // past the 20 s cutoff
+      expect(release).toBeDefined();
+      release?.();
+      await expect(p).resolves.toBeInstanceOf(Response);
+      expect(router.failovers).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("never fails over to direct: with no network left, reads fail", async () => {
+    const n = networks({ nox: "no-exit", nym: "no-exit" });
+    const direct = directFetchSpy();
+    const router = new TransportRouter(on, { workerFactory: n.factory, fetch: direct.fn });
+    const client = createPublicClient({ transport: router.transport() });
+    await expect(client.getBlockNumber({ cacheTime: 0 })).rejects.toThrow();
+    // Tor isn't configured (no gateway set), so it isn't tried.
+    expect(router.failovers.map((e) => `${e.from}→${e.to}`)).toEqual(["nox→nym"]);
+    // Only specifier reads went direct; no RPC call did.
+    expect(router.counter.snapshot()["direct-approved"]).toBe(0);
+    for (const call of (direct.fn as unknown as ReturnType<typeof vi.fn>).mock.calls)
+      expect(String((call[1] as RequestInit | undefined)?.body)).toContain("eth_call");
+  });
+
+  it("uses Tor only when a gateway is configured", async () => {
+    const n = networks({ nox: "no-exit", nym: "no-exit" });
+    const router = new TransportRouter(
+      { ...on, anonConfig: { "tor-js": { gateways: ["1.2.3.4:1:x"] } } },
+      { workerFactory: n.factory, fetch: directFetchSpy().fn },
+    );
+    const client = createPublicClient({ transport: router.transport() });
+    expect(await client.getBlockNumber({ cacheTime: 0 })).toBe(16n);
+    expect(router.activeNetwork).toBe("tor-js");
+  });
+
+  it("doesn't retry a broadcast on the new network (it may have gone out), but switches", async () => {
+    const n = networks({ nox: "no-exit" });
+    const router = new TransportRouter(on, {
+      workerFactory: n.factory,
+      fetch: directFetchSpy().fn,
+    });
+    const client = createPublicClient({ transport: router.transport() });
+    await expect(client.sendRawTransaction({ serializedTransaction: RAW_TX })).rejects.toThrow();
+    expect(n.served.nym ?? []).not.toContain("eth_sendRawTransaction");
+    expect(router.activeNetwork).toBe("nym");
+  });
+
+  it("one ordinary failure doesn't switch; two in a row do", async () => {
+    let fail = 0;
+    const factory = vi.fn(async (init: WorkerInit): Promise<AnonWorkerLike> => ({
+      ready: Promise.resolve(),
+      fetch: async (_i, i2) => {
+        if (init.address === anonNetworks.nox.specifier && fail-- > 0)
+          throw new Error("socket closed");
+        return rpcReply(i2?.body);
+      },
+      close: () => {},
+    }));
+    const router = new TransportRouter(on, { workerFactory: factory, fetch: directFetchSpy().fn });
+    const f = router.anonFetch();
+    const req = {
+      method: "POST",
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_chainId" }),
+    };
+    fail = 1;
+    await expect(f("https://rpc.example", req)).rejects.toThrow("socket closed");
+    expect(router.activeNetwork).toBe("nox");
+    await f("https://rpc.example", req); // a success resets the count
+    fail = 2;
+    await expect(f("https://rpc.example", req)).rejects.toThrow();
+    await expect(f("https://rpc.example", req)).resolves.toBeInstanceOf(Response);
+    expect(router.activeNetwork).toBe("nym");
+  });
+
+  it("is off when the setting says so, and retryPreferred goes back", async () => {
+    const n = networks({ nox: "no-exit" });
+    const off = new TransportRouter(base, { workerFactory: n.factory, fetch: directFetchSpy().fn });
+    await expect(
+      createPublicClient({ transport: off.transport() }).getBlockNumber({ cacheTime: 0 }),
+    ).rejects.toThrow();
+    expect(off.activeNetwork).toBe("nox");
+    const r = new TransportRouter(on, {
+      workerFactory: networks({ nox: "no-exit" }).factory,
+      fetch: directFetchSpy().fn,
+    });
+    await createPublicClient({ transport: r.transport() }).getBlockNumber({ cacheTime: 0 });
+    expect(r.activeNetwork).toBe("nym");
+    r.retryPreferred();
+    expect(r.activeNetwork).toBe("nox");
   });
 });

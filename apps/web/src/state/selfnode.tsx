@@ -18,6 +18,7 @@ import {
   type Route,
   type TrafficSnapshot,
   type TransportSettings,
+  type WorkerFactory,
 } from "@selfnode/core";
 import {
   createContext,
@@ -110,12 +111,33 @@ const trafficStore = (r: TransportRouter) => {
   return s;
 };
 
+/**
+ * Testing aid: localStorage "selfnode:debug-fail-networks" = "nox" (comma-separated)
+ * makes those networks' workers fail to start, to exercise failover. It can only
+ * make a network fail; it never routes traffic anywhere else.
+ */
+function withForcedFailures(factory: WorkerFactory): WorkerFactory {
+  return (init) => {
+    const fail = (localStorage.getItem("selfnode:debug-fail-networks") ?? "").split(",");
+    const id = (Object.keys(anonNetworks) as (keyof typeof anonNetworks)[]).find(
+      (k) => anonNetworks[k].specifier.toLowerCase() === init.address.toLowerCase(),
+    );
+    if (id && fail.includes(id))
+      throw new Error(
+        `${anonNetworks[id].label} failed to boot (forced by selfnode:debug-fail-networks)`,
+      );
+    return factory(init);
+  };
+}
+
 export function SelfnodeProvider({ children }: { children: ReactNode }) {
   // Self-hosted sandbox page, so the strict CSP needs no 'unsafe-inline' (see public/_headers).
   const [router] = useState(
     () =>
       new TransportRouter(loadSettings(), {
-        workerFactory: createHarnessWorkerFactory({ iframeUrl: "/anon-rpc-iframe.html" }),
+        workerFactory: withForcedFailures(
+          createHarnessWorkerFactory({ iframeUrl: "/anon-rpc-iframe.html" }),
+        ),
         // Pin each network's worker hash; ask before running changed code.
         pins: localWorkerPins,
         onWorkerCodeChange: askWorkerCodeChange,
@@ -175,15 +197,33 @@ export interface ConnectionView extends ConnectionInfo {
   chainName: string;
 }
 
+/** Automatic anonymity-network switches this session, and the network now in use. */
+export function useFailover() {
+  const { router } = useSelfnode();
+  const key = useSyncExternalStore(
+    (l) => router.subscribeFailover(l),
+    () => `${router.activeNetwork}|${router.failovers.length}`,
+  );
+  return useMemo(
+    () => ({
+      active: router.activeNetwork,
+      events: router.failovers,
+      retry: () => router.retryPreferred(),
+    }),
+    [key, router],
+  );
+}
+
 export function useConnection(): ConnectionView {
   const { router, settings } = useSelfnode();
+  const { active } = useFailover();
   const health = useSyncExternalStore(
     (l) => router.health.subscribe(l),
     () => router.health.snapshot(),
   );
   const poolVersion = useSyncExternalStore(
     (l) => router.pool.subscribe(l),
-    () => JSON.stringify(router.pool.status(settings.anonNetwork).status),
+    () => JSON.stringify(router.pool.status(active).status),
   );
   const { session } = useTraffic();
   const worker = JSON.parse(poolVersion) as ReturnType<typeof router.pool.status>["status"];
@@ -195,7 +235,7 @@ export function useConnection(): ConnectionView {
   });
   const via =
     settings.mode === "private"
-      ? `via ${anonNetworks[settings.anonNetwork].label}`
+      ? `via ${anonNetworks[active].label}${active !== settings.anonNetwork ? ` (${anonNetworks[settings.anonNetwork].label} unavailable)` : ""}`
       : settings.mode === "verified"
         ? "Helios · direct"
         : (hostOf(settings.myNodeUrl?.[settings.chain]) ?? "no node set");

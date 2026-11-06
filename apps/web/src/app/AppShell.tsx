@@ -8,6 +8,7 @@ import { Header } from "./Header";
 import { MobileNav } from "./MobileNav";
 import { NodeAutoSwitch } from "./NodeAutoSwitch";
 import { WorkerCodeChangeDialog } from "./WorkerCodeChangeDialog";
+import { FailoverNotice } from "./FailoverNotice";
 
 export function AppShell() {
   const { pref, setPref } = useTheme();
@@ -31,6 +32,7 @@ export function AppShell() {
       </main>
       <NodeAutoSwitch />
       <WorkerCodeChangeDialog />
+      <FailoverNotice />
       <footer className="border-t border-border">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-5 py-6 text-caption text-muted">
           <span>
