@@ -109,7 +109,7 @@ instructions for opening unsigned apps. Builds come from
 
 ## Deploy
 
-Live at **https://selfnode.jhfe.workers.dev/**. It's a Cloudflare Worker with static assets and no server code
+Live at **https://selfnode.jhfe.workers.dev/**. It's a Cloudflare Worker with static assets; the only code is a few lines in [`apps/web/worker.js`](apps/web/worker.js), which runs for `/assets/*` alone and returns a real 404 for files from an old build (so an open tab reloads onto the new one), with no app logic and no logging
 ([`apps/web/wrangler.jsonc`](apps/web/wrangler.jsonc)), with security headers in
 [`apps/web/public/_headers`](apps/web/public/_headers):
 

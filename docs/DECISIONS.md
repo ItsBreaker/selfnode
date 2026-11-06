@@ -696,3 +696,22 @@ Headers`, `Waiting for peers...`) are strings in the shipped 2.2.2 binary;
   (`localStorage["selfnode:debug-fail-networks"] = "nox"`, a test aid that can
   only make a network fail): switched in 0.5 s, Ready via Nym, live blocks, 0
   direct requests; with the setting off it stayed Unavailable.
+
+## Stale assets after a deploy (2026-11-06)
+
+- **Problem:** with single-page-app fallback, a missing `/assets/*` file (a chunk
+  from the previous build, asked for by an open tab) came back as `index.html`
+  with status 200.
+- **Fix:** `apps/web/worker.js` runs only for `/assets/*`
+  (`run_worker_first`). It fetches the asset and, if the host fell back to HTML,
+  returns a plain-text 404 with `no-store`. App routes still fall back to
+  `index.html`, and every other path is served straight from static assets with
+  `_headers` (assets served through the Worker keep their headers too; checked
+  with `wrangler dev`).
+- **Reload once:** `vite:preloadError` (failed JS imports and CSS preloads) and a
+  failed `<link rel=stylesheet>` under `/assets/` reload the page, at most once
+  every 30 s (previously once per session, so a second deploy stranded the tab).
+- **Tested** with `wrangler dev`: an open tab on build A, a real build B (the Swap
+  chunk renamed), then navigating to Swap in the old tab reloaded it onto build
+  B; a missing old stylesheet reloaded it; a second missing file within 30 s
+  didn't (no loop).

@@ -5,8 +5,12 @@
   "name": "selfnode",
   "compatibility_date": "2026-11-01",
   "workers_dev": true,
+  // A tiny Worker for /assets/* only: real 404s for files from an old build (worker.js).
+  "main": "./worker.js",
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/assets/*"],
     "not_found_handling": "single-page-application",
     // Serve /anon-rpc-iframe.html at exactly that URL. The default would 307 to
     // /anon-rpc-iframe, where the main CSP and X-Frame-Options: DENY apply and

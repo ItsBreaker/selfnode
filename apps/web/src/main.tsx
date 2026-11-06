@@ -98,15 +98,32 @@ const router = createBrowserRouter([
   },
 ]);
 
-// After a deploy, an already-open tab may ask for chunk files that no longer
-// exist (the static host answers with index.html). Reload once to pick up the
-// new build instead of failing; the session flag prevents a reload loop.
-window.addEventListener("vite:preloadError", (e) => {
-  if (sessionStorage.getItem("selfnode:reloaded-for-new-build")) return;
-  sessionStorage.setItem("selfnode:reloaded-for-new-build", "1");
-  e.preventDefault();
+// After a deploy, an already-open tab may ask for JS or CSS chunks that no longer
+// exist (the host answers 404). Reload to pick up the new build instead of
+// failing. Vite reports both failed JS imports and failed CSS preloads as
+// vite:preloadError; a failed stylesheet <link> is caught too. At most one
+// reload per 30 s, so a missing file can't cause a loop but a second deploy
+// later in the same tab still recovers.
+const RELOAD_KEY = "selfnode:reloaded-for-new-build";
+function reloadForNewBuild(): boolean {
+  const last = Number(sessionStorage.getItem(RELOAD_KEY) ?? 0);
+  if (Date.now() - last < 30_000) return false;
+  sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
   location.reload();
+  return true;
+}
+window.addEventListener("vite:preloadError", (e) => {
+  if (reloadForNewBuild()) e.preventDefault();
 });
+window.addEventListener(
+  "error",
+  (e) => {
+    const t = e.target;
+    if (t instanceof HTMLLinkElement && t.rel === "stylesheet" && t.href.includes("/assets/"))
+      reloadForNewBuild();
+  },
+  true, // resource errors don't bubble
+);
 
 const el = document.getElementById("root");
 if (!el) throw new Error("#root missing");
