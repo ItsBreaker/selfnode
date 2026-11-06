@@ -1,0 +1,74 @@
+name: Arkiv mirror refresh
+
+# Re-runs the idempotent Arkiv importer (scripts/arkiv-mirror) so the mirror
+# follows its sources and nothing expires: unchanged rows are skipped, changed
+# rows patched, rows near their 90-day expiry extended. See arkiv/data-quality.md.
+#
+# Only on a schedule or a manual run on main; never on pull requests, so no
+# fork or PR code ever runs with the mirror key.
+on:
+  schedule:
+    - cron: "17 2 * * *" # daily, 02:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never two writers at once (their batches would race on the same entities).
+concurrency:
+  group: arkiv-mirror
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    if: github.ref == 'refs/heads/main' && github.repository == 'ItsBreaker/selfnode'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      # Actions are pinned to full commit SHAs (tag in the trailing comment).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check the secrets are configured
+        env:
+          ARKIV_MIRROR_PRIVATE_KEY: ${{ secrets.ARKIV_MIRROR_PRIVATE_KEY }}
+          ARKIV_ACCESS_KEY: ${{ secrets.ARKIV_ACCESS_KEY }}
+        run: |
+          missing=0
+          [ -n "$ARKIV_MIRROR_PRIVATE_KEY" ] || { echo "::error::Repository secret ARKIV_MIRROR_PRIVATE_KEY is not set"; missing=1; }
+          [ -n "$ARKIV_ACCESS_KEY" ] || { echo "::error::Repository secret ARKIV_ACCESS_KEY is not set"; missing=1; }
+          exit $missing
+
+      # The importer prints only per-dataset summaries, the public owner address
+      # and transaction hashes. Keys are read from the environment, sent only in
+      # the X-API-KEY header / used to sign, and redacted from any error. GitHub
+      # also masks secret values in logs.
+      - name: Refresh the mirror
+        env:
+          ARKIV_MIRROR_PRIVATE_KEY: ${{ secrets.ARKIV_MIRROR_PRIVATE_KEY }}
+          ARKIV_ACCESS_KEY: ${{ secrets.ARKIV_ACCESS_KEY }}
+          # Read-only token, sent only to api.github.com (to avoid anonymous rate limits).
+          GITHUB_TOKEN: ${{ github.token }}
+        # --reserve: stop before the wallet drops below 2 tGLM. --max-spend: at most 1 tGLM per run.
+        run: pnpm --filter @selfnode/scripts arkiv:mirror --reserve 2 --max-spend 1
+
+      - name: Summary
+        if: always()
+        run: |
+          f=$(ls -t scripts/arkiv-mirror/.cache/report-*.json 2>/dev/null | head -1)
+          [ -n "$f" ] || { echo "No report written." >> "$GITHUB_STEP_SUMMARY"; exit 0; }
+          node -e '
+            const r = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+            const tg = (w) => (Number(w) / 1e18).toFixed(6);
+            const rows = r.reports.map((x) => `| ${x.dataset} | ${x.created} | ${x.updated} | ${x.extended} | ${x.skipped} | ${x.leftToExpire} | ${tg(x.spentWei)} |`);
+            console.log(["### Arkiv mirror refresh", "", `Owner \`${r.owner}\``, "",
+              "| Dataset | Created | Updated | Extended | Skipped | Left to expire | tGLM |",
+              "| --- | --: | --: | --: | --: | --: | --: |", ...rows].join("\n"));
+          ' "$f" >> "$GITHUB_STEP_SUMMARY"

@@ -94,7 +94,19 @@ ones that matter, ranked by **real usage**:
 - Re-runs are cheap. The third run on 2026-11-06 skipped **all 3,345** existing
   rows at zero cost and only created the 4 new licence-notice entities
   (0.0016 tGLM).
-- Suggested cadence: weekly. The usage sample is cached for 7 days.
+- **Refreshed daily by
+  [`.github/workflows/arkiv-mirror.yml`](https://github.com/ItsBreaker/selfnode/actions/workflows/arkiv-mirror.yml)**
+  (02:17 UTC, plus manual runs; `main` only, never on pull requests). It runs
+  the same importer against each source's latest commit, with the 2 tGLM
+  reserve guard and at most 1 tGLM per run, and posts a per-dataset summary
+  (created / updated / extended / skipped / tGLM) to the run page. The mirror
+  key and Arkiv access key are repository secrets, never in the repo.
+- A daily run starts with an empty cache, so it takes a fresh 300-block usage
+  sample; function-name ranks can shift a little, which costs at most a few
+  patches (444 × 0.00002 tGLM ≈ 0.009 tGLM if every rank changed). Locally the
+  sample is cached for 7 days.
+- `sourceCommit` records the commit a row's values were imported from. Rows
+  whose content is unchanged aren't rewritten when a source gets new commits.
 
 ## Query filters available
 

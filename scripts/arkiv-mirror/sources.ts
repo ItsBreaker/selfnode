@@ -24,11 +24,36 @@ export interface Dataset<T> {
 }
 
 const UA = { "user-agent": "selfnode-arkiv-mirror" };
+/**
+ * GitHub API calls: in CI, send the workflow's read-only GITHUB_TOKEN (only to
+ * api.github.com) so the shared runner IP isn't rate-limited at 60 requests/hour.
+ */
+const GH = {
+  ...UA,
+  ...(process.env.GITHUB_TOKEN ? { authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
+};
+
+/** A GitHub API GET, retried on 5xx and network errors (a daily job shouldn't fail on one hiccup). */
+async function ghFetch(url: string, headers: Record<string, string>): Promise<Response> {
+  let last = "";
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const r = await fetch(url, { headers });
+      if (r.status < 500) return r;
+      last = `HTTP ${r.status}`;
+    } catch (e) {
+      last = e instanceof Error ? e.message : String(e);
+    }
+    await new Promise((res) => setTimeout(res, 1000 * 2 ** attempt));
+  }
+  throw new Error(`GitHub API ${new URL(url).pathname}: ${last} after 4 attempts`);
+}
 
 /** The current commit of the default branch (pass --commit to pin a specific one). */
 export async function headCommit(repo: string): Promise<string> {
-  const r = await fetch(`https://api.github.com/repos/${repo}/commits/HEAD`, {
-    headers: { ...UA, accept: "application/vnd.github.sha" },
+  const r = await ghFetch(`https://api.github.com/repos/${repo}/commits/HEAD`, {
+    ...GH,
+    accept: "application/vnd.github.sha",
   });
   if (!r.ok) throw new Error(`GitHub ${repo}: ${r.status}`);
   const sha = (await r.text()).trim();
@@ -49,9 +74,10 @@ async function raw(repo: string, commit: string, path: string): Promise<string |
 }
 
 async function listDir(repo: string, commit: string, dir: string): Promise<string[]> {
-  const r = await fetch(`https://api.github.com/repos/${repo}/git/trees/${commit}?recursive=1`, {
-    headers: UA,
-  });
+  const r = await ghFetch(
+    `https://api.github.com/repos/${repo}/git/trees/${commit}?recursive=1`,
+    GH,
+  );
   if (!r.ok) throw new Error(`GitHub tree ${repo}: ${r.status}`);
   const j = (await r.json()) as { tree: { path: string; type: string }[]; truncated: boolean };
   if (j.truncated) throw new Error(`Tree for ${repo} was truncated; can't list ${dir}`);
