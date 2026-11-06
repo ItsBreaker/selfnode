@@ -6,7 +6,7 @@ are, and nothing depends on Infura's, Etherscan's or Uniswap's servers.**
 
 **Live:** [selfnode.jhfe.workers.dev](https://selfnode.jhfe.workers.dev/) (Sepolia
 wallet and swap; mainnet read-only). **Desktop:**
-[v0.1.0-hackathon](https://github.com/ItsBreaker/selfnode/releases/tag/v0.1.0-hackathon)
+[v0.1.1-hackathon](https://github.com/ItsBreaker/selfnode/releases/tag/v0.1.1-hackathon)
 (macOS and Windows, unsigned). Built at ETHGlobal Mumbai (November 2026).
 MIT licensed.
 
@@ -59,14 +59,15 @@ Ethereum's client diversity.
 - **Smallest footprint.** Nethermind skips historical bodies and receipts and
   prunes history and state; Nimbus checkpoint-syncs without backfill and prunes
   history. Each flag is cited in
-  [`node/manager.ts`](apps/desktop/src/node/manager.ts).
+  [`node/args.ts`](apps/desktop/src/node/args.ts).
 - **Disk safety.** The pre-flight check uses the clients' own published figures
   (Sepolia ≈ 212 GB execution + 200 GB consensus, plus four weeks of growth). It
   refuses to start without the larger of 50 GB or 10% free left over, and a
   watchdog pauses the node cleanly below that. You can pick the data directory
   (e.g. an external SSD).
 - **Laptop-friendly.** It pauses on battery (optional) and stops cleanly on quit.
-  RPC, Engine API and REST listen on 127.0.0.1 only, and logs are in the app.
+  RPC, Engine API and REST listen on 127.0.0.1 only, UPnP and NAT-PMP are off,
+  and logs are in the app.
 - **Reads switch to your node** once it's synced. Transactions are still broadcast
   through Anon-RPC.
 - Intel Macs can run the app but not the node manager: neither Nimbus nor
@@ -79,7 +80,7 @@ Ethereum's client diversity.
   on Windows and macOS and asserts a clean exit every time.
 
 **Download:
-[v0.1.0-hackathon pre-release](https://github.com/ItsBreaker/selfnode/releases/tag/v0.1.0-hackathon)**:
+[v0.1.1-hackathon pre-release](https://github.com/ItsBreaker/selfnode/releases/tag/v0.1.1-hackathon)**:
 universal macOS `.dmg` and Windows `.exe`, unsigned, with `SHA256SUMS.txt` and
 instructions for opening unsigned apps. Builds come from
 [the desktop workflow](.github/workflows/desktop.yml). Run locally with
@@ -159,7 +160,7 @@ Every exception, and why:
 - MIT licence. Pinned exact dependency versions with a committed lockfile.
 - Dependency install scripts are blocked except `esbuild`, and pnpm's
   minimum-release-age policy applies with no exceptions.
-- CI runs typecheck, lint, format, 122 tests and gitleaks on every push, plus macOS and Windows desktop builds.
+- CI runs typecheck, lint, format, 126 tests and gitleaks on every push, plus macOS and Windows desktop builds.
 - Builds with `pnpm install && pnpm --filter @selfnode/web build`.
 
 **Privacy**

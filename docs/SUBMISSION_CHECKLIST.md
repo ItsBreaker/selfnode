@@ -49,12 +49,12 @@ Built from section 3 of the build brief. Tick as completed.
 - [x] Electron app over `app://` with the security checklist (contextIsolation, sandbox, no nodeIntegration, typed validated bridge, new windows/navigation locked, strict CSP, devtools off when packaged)
 - [x] Node manager: pre-flight, verified downloads, pruned Sepolia (Nethermind + Nimbus), sync progress, auto-switch, pause on battery and low disk, clean shutdown, logs
 - [x] CI builds for macOS (universal dmg) and Windows (NSIS) with SHA-256 checksums
-- [ ] **Jayden:** review `apps/desktop/node-manifest.json`, then set `maintainerReviewed` to true
-- [x] Desktop pre-release published: https://github.com/ItsBreaker/selfnode/releases/tag/v0.1.0-hackathon (unsigned .dmg/.exe + SHA256SUMS.txt), linked from the web Download page and the README
+- [x] `apps/desktop/node-manifest.json` reviewed by Jayden; `maintainerReviewed` is true
+- [x] Desktop pre-release published: https://github.com/ItsBreaker/selfnode/releases/tag/v0.1.1-hackathon (unsigned .dmg/.exe + SHA256SUMS.txt), linked from the web Download page, README and demo script. v0.1.0-hackathon is kept and marked superseded.
 - [x] Windows graceful shutdown: real Ctrl+C, verified by the node-shutdown CI job on windows-latest and macos-latest (label now "Tested in CI on Windows; graceful shutdown verified")
 
 ## Final checks (2026-11-06)
 
 - [x] gitleaks over the full git history (`gitleaks git --log-opts=--all`): 84 commits, no leaks. Working-tree hits are only the gitignored `.env` and local mirror reports, which hold public commit hashes; no secrets found in them.
 - [x] README re-checked: feature table, test count, architecture, and all 14 Uniswap line anchors verified against the source
-- [ ] Swarm bonus: skipped unless a postage batch becomes available
+- [ ] Swarm bonus: on hold, waiting on the Arkiv team

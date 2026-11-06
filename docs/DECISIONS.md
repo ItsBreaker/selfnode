@@ -538,5 +538,6 @@ This supersedes the "experimental on Windows" entries above.
   NAT-PMP; networking guide: "By default, Nimbus uses UPnP").
 - **Label:** "Experimental on Windows" became "Tested in CI on Windows; graceful
   shutdown verified" (UI and README) once the CI job passed.
-- **The published v0.1.0-hackathon Windows build predates this work.** Its notes
-  correctly say "experimental". A new build would include graceful shutdown.
+- **The v0.1.0-hackathon Windows build predates this work.** Its notes say
+  "experimental" and now point to v0.1.1-hackathon, the first release with
+  graceful Windows shutdown, UPnP/NAT-PMP off, and damage detection with resync.

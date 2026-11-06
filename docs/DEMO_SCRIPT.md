@@ -31,7 +31,7 @@ back, which is the point.
 
 **Setup:**
 
-- Install the [v0.1.0-hackathon](https://github.com/ItsBreaker/selfnode/releases/tag/v0.1.0-hackathon)
+- Install the [v0.1.1-hackathon](https://github.com/ItsBreaker/selfnode/releases/tag/v0.1.1-hackathon)
   build on an Apple Silicon Mac (right-click → Open the first time).
 - Start the node at least an hour before recording, so it has peers and visible
   sync progress. If it's fully synced, even better: the app will already have
