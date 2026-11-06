@@ -9,6 +9,7 @@ import { MobileNav } from "./MobileNav";
 import { NodeAutoSwitch } from "./NodeAutoSwitch";
 import { WorkerCodeChangeDialog } from "./WorkerCodeChangeDialog";
 import { FailoverNotice } from "./FailoverNotice";
+import { LabelsStatus } from "./LabelsStatus";
 
 export function AppShell() {
   const { pref, setPref } = useTheme();
@@ -27,6 +28,7 @@ export function AppShell() {
         themeToggle={toggle}
         mobileNav={<MobileNav themeToggle={toggle} />}
       />
+      <LabelsStatus />
       <main id="main" className="flex-1">
         <Outlet />
       </main>

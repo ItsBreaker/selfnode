@@ -59,6 +59,10 @@ const text = (v: { value: unknown } | undefined): string => {
 };
 type V = { value: string | number };
 
+/** One chain object per page, so the SDK's "no access key" notice is logged once, not per reader. */
+let rabdiChain: ReturnType<typeof rabdi> | null = null;
+const keylessRabdi = () => (rabdiChain ??= rabdi({ accessKey: "" }));
+
 const BROWSE_SCHEMA = { tokens: TokenSchema, labels: LabelSchema, sigs: SigSchema } as const;
 
 export class MirrorReader {
@@ -66,6 +70,7 @@ export class MirrorReader {
   readonly #owner: Address;
   readonly #cache: LabelCache;
   readonly #ttl: number;
+  readonly #onAvailability: ((ok: boolean, error?: string) => void) | undefined;
   #pending = new Map<
     string,
     {
@@ -83,12 +88,15 @@ export class MirrorReader {
     fetchFn?: typeof fetch;
     cache?: LabelCache;
     ttlMs?: number;
+    /** Told whether Arkiv answered the last batch of lookups (e.g. for a "labels unavailable" notice). */
+    onAvailability?: (ok: boolean, error?: string) => void;
   }) {
+    this.#onAvailability = opts.onAvailability;
     this.#owner = opts.owner;
     this.#cache = opts.cache ?? memoryCache();
     this.#ttl = opts.ttlMs ?? 24 * 3600_000;
     this.#client = createPublicClient({
-      chain: rabdi({ accessKey: "" }),
+      chain: keylessRabdi(),
       transport: http(undefined, {
         ...(opts.fetchFn ? { fetchFn: opts.fetchFn } : {}),
         timeout: 45_000,
@@ -204,6 +212,17 @@ export class MirrorReader {
   async #lookup<T>(kind: "addr" | "sig", cacheKey: string, chain?: number): Promise<T> {
     const hit = await this.#cache.get(cacheKey);
     if (hit && Date.now() - hit.at < this.#ttl) return hit.value as T;
+    try {
+      return await this.#queue<T>(kind, cacheKey, chain);
+    } catch (e) {
+      // Arkiv unavailable (e.g. the public endpoint rate-limiting): an expired
+      // cached answer beats none.
+      if (hit) return hit.value as T;
+      throw e;
+    }
+  }
+
+  #queue<T>(kind: "addr" | "sig", cacheKey: string, chain?: number): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       const list = this.#pending.get(cacheKey) ?? [];
       list.push({
@@ -258,9 +277,14 @@ export class MirrorReader {
       }
       await Promise.all(jobs);
     } catch (e) {
+      this.#onAvailability?.(
+        false,
+        e instanceof Error ? (e.message.split("\n")[0] ?? e.message) : String(e),
+      );
       for (const [, waiters] of pending) for (const w of waiters) w.reject(e);
       return;
     }
+    this.#onAvailability?.(true);
     const now = Date.now();
     for (const [key, waiters] of pending) {
       const v = results.get(key) ?? null;

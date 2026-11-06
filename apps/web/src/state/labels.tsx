@@ -59,6 +59,25 @@ interface ArchiveCtx {
   unload: () => void;
 }
 
+/** Whether Arkiv answered the last label lookups (for the "labels temporarily unavailable" notice). */
+export const arkivStatus = (() => {
+  let down: { since: number; error: string } | null = null;
+  const ls = new Set<() => void>();
+  return {
+    report(ok: boolean, error?: string) {
+      const next = ok ? null : (down ?? { since: Date.now(), error: error ?? "unavailable" });
+      if (next === down) return;
+      down = next;
+      ls.forEach((l) => l());
+    },
+    get: () => down,
+    subscribe(l: () => void) {
+      ls.add(l);
+      return () => ls.delete(l);
+    },
+  };
+})();
+
 const Ctx = createContext<Mirror | null>(null);
 const ArchiveContext = createContext<ArchiveCtx | null>(null);
 
@@ -72,6 +91,7 @@ export function LabelsProvider({ children }: { children: ReactNode }) {
           owner: arkivConfig.mirrorOwner,
           fetchFn: router.anonFetch(),
           cache: labelCache,
+          onAvailability: arkivStatus.report,
         });
       }),
     // A new anonymity network (or its config) needs a new fetch.
@@ -85,13 +105,15 @@ export function LabelsProvider({ children }: { children: ReactNode }) {
   const mirror = useMemo<Mirror>(
     () => ({
       reader: reader.reader,
+      // A failed lookup (Arkiv down or rate-limiting, nothing cached) is "no label":
+      // the address or selector still shows, and the notice explains.
       label: async (c, a) => {
         const hit = indexRef.current?.label(c, a);
-        return hit ? { ...hit, via: "swarm" } : reader.label(c, a);
+        return hit ? { ...hit, via: "swarm" } : reader.label(c, a).catch(() => null);
       },
       signature: async (sel) => {
         const hit = indexRef.current?.signature(sel);
-        return hit ? { ...hit, via: "swarm" } : reader.signature(sel);
+        return hit ? { ...hit, via: "swarm" } : reader.signature(sel).catch(() => null);
       },
     }),
     [reader],
