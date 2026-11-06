@@ -142,6 +142,7 @@ public static class SelfnodeCtrlInherit {
 $restored = [SelfnodeCtrlInherit]::SetConsoleCtrlHandler([IntPtr]::Zero, $false)
 [Console]::Out.WriteLine("SELFNODE_CTRLC_RESTORED " + $restored); [Console]::Out.Flush()
 $p = Start-Process -FilePath $env:SN_BIN -ArgumentList $env:SN_ARGS -WorkingDirectory $env:SN_CWD -WindowStyle Hidden -PassThru -RedirectStandardOutput $env:SN_OUT -RedirectStandardError $env:SN_ERR
+$null = $p.Handle  # cache the handle now, or ExitCode is empty after the process exits (PowerShell quirk)
 [Console]::Out.WriteLine("SELFNODE_PID " + $p.Id); [Console]::Out.Flush()
 $p.WaitForExit()
 [Console]::Out.WriteLine("SELFNODE_EXIT " + $p.ExitCode); [Console]::Out.Flush()
