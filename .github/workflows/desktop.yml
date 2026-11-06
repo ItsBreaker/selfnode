@@ -2,21 +2,24 @@ name: Desktop builds
 
 # Unsigned macOS (universal .dmg) and Windows (NSIS .exe) builds, uploaded as
 # workflow artifacts with SHA-256 checksums. No GitHub Release is created.
+#
+# Runs only on: manual dispatch, version tags (v*), and pushes to main that
+# change the desktop app, core, or this workflow. Never on docs-only changes.
+# (Web-only changes reach the desktop app with the next tagged/dispatched build.)
 on:
   push:
     branches: [main]
-    paths:
-      [
-        "apps/desktop/**",
-        "apps/web/**",
-        "packages/core/**",
-        "pnpm-lock.yaml",
-        ".github/workflows/desktop.yml",
-      ]
+    tags: ["v*"] # path filters aren't evaluated for tag pushes, so tags always build
+    paths: ["apps/desktop/**", "packages/core/**", ".github/workflows/desktop.yml"]
   workflow_dispatch:
 
 permissions:
   contents: read
+
+# One run per branch/tag at a time; a newer push cancels the older run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -59,4 +62,4 @@ jobs:
             apps/desktop/release/*.exe
             apps/desktop/release/SHA256SUMS.txt
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 3

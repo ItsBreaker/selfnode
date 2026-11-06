@@ -5,9 +5,13 @@ name: Node shutdown test
 # command lines, stop them with the production method (a console Ctrl+C on
 # Windows, SIGINT on macOS) and assert each exits cleanly: no force-kill, its
 # documented exit code, and its own clean-shutdown log line.
+#
+# Runs only on: manual dispatch, version tags (v*), and pushes to main that
+# change the node manager, its test, the client manifest or this workflow.
 on:
   push:
     branches: [main]
+    tags: ["v*"]
     paths:
       [
         "apps/desktop/src/node/**",
@@ -19,6 +23,11 @@ on:
 
 permissions:
   contents: read
+
+# One run per branch/tag at a time; a newer push cancels the older run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   shutdown:
@@ -52,4 +61,4 @@ jobs:
             ${{ runner.temp }}/selfnode-shutdown/shutdown-result.json
             ${{ runner.temp }}/selfnode-shutdown/logs/
           if-no-files-found: ignore
-          retention-days: 14
+          retention-days: 3

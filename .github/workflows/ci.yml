@@ -1,12 +1,22 @@
 name: CI
 
+# Typecheck, lint, format and tests. Skipped for docs-only changes (Markdown is
+# formatted by the pre-commit check locally); the secret scan runs on every push
+# in secrets.yml.
 on:
   push:
     branches: [main]
+    paths-ignore: ["**.md", "docs/**", "arkiv/**.md"]
   pull_request:
+    paths-ignore: ["**.md", "docs/**", "arkiv/**.md"]
 
 permissions:
   contents: read
+
+# One run per branch/tag at a time; a newer push cancels the older run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
@@ -24,13 +34,3 @@ jobs:
       - run: pnpm lint
       - run: pnpm format:check
       - run: pnpm test
-
-  gitleaks:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
