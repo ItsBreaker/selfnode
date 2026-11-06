@@ -205,6 +205,44 @@ doesn't have still goes to Arkiv. Code:
 the live site: no gateway request before the click, three verified downloads
 after it, and decoded calls attributed to the archive.
 
+## The web app on Swarm
+
+The production web build (commit `cf55cea`) is also on Swarm, and **Private
+mode works from it**:
+
+- **URL:** [https://bah5acgzaeq6dwpcnh6wblblowd4id6fp32dnhl65lwbhwogggysonob2zznq.bzz.limo/](https://bah5acgzaeq6dwpcnh6wblblowd4id6fp32dnhl65lwbhwogggysonob2zznq.bzz.limo/)
+- **Swarm reference:** `243c3b3c4d3fac15856eb0f881f8afde86d3afdd5d827b38c63624e6b83ace5b` (a website
+  collection; index and error document `index.html`, so deep links work)
+- **Arkiv:** `selfnode-snapshot` entity
+  `0x8746ba3e56aacc8a4bafe1959e19519d533a6f6140ac9041326c420cdee905c4`
+  (`dataset = "web"`, `version` / `sourceCommit` = the git commit, `rowCount` =
+  88 files, `sha256` of the uploaded tar).
+- **Script:** `pnpm --filter @selfnode/scripts swarm:site`
+  ([`scripts/arkiv-mirror/site.ts`](../scripts/arkiv-mirror/site.ts)): uploads
+  `apps/web/dist` through bzz.limo with plain fetch, checks the URL serves this
+  build's `index.html` byte-for-byte, then writes the entity. It refuses to run
+  with uncommitted app code.
+
+Tested in a headless browser from that URL: Nox reached Ready through the
+sandbox iframe, live Sepolia reads, Arkiv labels and decoded calls, the Data
+page and a deep-link reload all worked, with 13 calls through Anon-RPC, the 2
+usual bootstrap reads, 0 direct, and no CSP violations.
+
+**Differences from the Cloudflare site** (a gateway can't send our headers):
+
+- The CSPs are `<meta>` tags. Verified enforced: injected inline scripts and
+  third-party scripts are blocked. But `frame-ancestors` can't be set from a
+  meta tag, and `X-Frame-Options`, COOP and HSTS aren't sent, so the Swarm copy
+  could be framed by another site. The Cloudflare site remains the primary one.
+- It's a separate origin, so its settings, wallet and worker-hash pins are
+  separate from the Cloudflare site's.
+- Only bzz.limo serves it, at the base32 CID subdomain (root-absolute paths
+  need their own origin). `bzz.link` and `api.gateway.ethswarm.org` redirect
+  websites to `bzz.link/forbidden`; `bzz.limo/bzz/<ref>/` serves the files, but
+  the app's absolute paths don't resolve under that prefix.
+- Same batch caveat as above: the gateway's own postage batch, so we don't know
+  how long it stays retrievable.
+
 ## Demo video
 
 Swarm segment at **[TIMESTAMP: to be added after recording]**.

@@ -83,6 +83,8 @@ snapshot file format, `selfnode-arkiv-snapshot/1`), `rowCount`, `sha256` (of the
 file), `swarmRef` (an unencrypted Swarm reference), `createdAt` (Unix seconds),
 plus the usual provenance (`source = selfnode/arkiv-snapshots`, `sourceCommit` =
 the datasets' source commits). Written by `--snapshot`; see [swarm.md](swarm.md).
+One more, `rowKey = snapshot:web`, `dataset = "web"`, points at the web app's
+Swarm mirror (written by `swarm:site`).
 
 ## Expiration
 

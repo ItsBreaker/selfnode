@@ -645,3 +645,25 @@ Headers`, `Waiting for peers...`) are strings in the shipped 2.2.2 binary;
   accept, no prompt when unchanged, node route vs public route. Verified in the
   browser against the real Nox specifier: fresh pin, Cancel (connection
   "Unavailable" with the reason, pin kept), and Accept (ready, re-pinned).
+
+## The web app on Swarm (2026-11-06)
+
+- **Published**, because Private mode works from it: production build
+  `cf55cea` at https://bah5acgzaeq6dwpcnh6wblblowd4id6fp32dnhl65lwbhwogggysonob2zznq.bzz.limo/
+  (reference `243c3b3c4d3fac15…`), recorded as a `selfnode-snapshot` entity
+  with `dataset = "web"`. Tested end to end: Nox through the sandbox iframe,
+  reads, Arkiv, the Data page, a deep-link reload, no CSP violations.
+- **Meta CSP instead of headers.** The CSPs from `_headers` are injected as
+  `<meta>` tags right after `<meta charset>` in `index.html` and the sandbox
+  page. Enforcement was checked (inline and third-party scripts blocked).
+  `frame-ancestors`, `X-Frame-Options`, COOP and HSTS can't be set this way, so
+  the Swarm copy is frameable; Cloudflare stays primary.
+- **Why the CID subdomain:** the app uses root-absolute paths
+  (`/assets/…`, `/anon-rpc-iframe.html`). `bzz.limo/bzz/<ref>/` serves the
+  files under a path prefix where those don't resolve; `<cid>.bzz.limo` gives
+  the build its own origin. `bzz.link` and `api.gateway.ethswarm.org` refuse to
+  serve websites (redirect to `bzz.link/forbidden`), though they served our JSON
+  snapshots.
+- **The in-app archive ignores it:** `loadArchive` only takes the `tokens`,
+  `labels` and `sigs` snapshot entities (deployed before the `web` entity was
+  written, so the live archive never saw it).

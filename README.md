@@ -7,7 +7,9 @@ are, and nothing depends on Infura's, Etherscan's or Uniswap's servers.**
 **Live:** [selfnode.jhfe.workers.dev](https://selfnode.jhfe.workers.dev/) (Sepolia
 wallet and swap; mainnet read-only). **Desktop:**
 [v0.1.1-hackathon](https://github.com/ItsBreaker/selfnode/releases/tag/v0.1.1-hackathon)
-(macOS and Windows, unsigned). Built at ETHGlobal Mumbai (November 2026).
+(macOS and Windows, unsigned). **Swarm mirror:**
+[bah5acgzaeq6dwpc….bzz.limo](https://bah5acgzaeq6dwpcnh6wblblowd4id6fp32dnhl65lwbhwogggysonob2zznq.bzz.limo/) (the same build, served from Swarm;
+[details](arkiv/swarm.md#the-web-app-on-swarm)). Built at ETHGlobal Mumbai (November 2026).
 MIT licensed.
 
 ## Screenshots
@@ -180,7 +182,7 @@ Every exception, and why:
 - MIT licence. Pinned exact dependency versions with a committed lockfile.
 - Dependency install scripts are blocked except `esbuild`, and pnpm's
   minimum-release-age policy applies with no exceptions.
-- CI runs typecheck, lint, format, 164 tests and gitleaks on every push, plus macOS and Windows desktop builds.
+- CI runs typecheck, lint, format, 168 tests and gitleaks on every push, plus macOS and Windows desktop builds.
 - Builds with `pnpm install && pnpm --filter @selfnode/web build`.
 
 **Privacy**

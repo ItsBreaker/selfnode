@@ -33,6 +33,7 @@ Built from section 3 of the build brief. Tick as completed.
 - [x] `/arkiv/swarm.md`: Swarm vs Arkiv, `swarmRef`, entity keys + references with links, batch (gateway's own, ID and lifetime not exposed), files, upload and read steps with real output, `--from-swarm` dry run, friction
 - [x] `--from-swarm` rebuild (hash-verified, gateway fallback) and a keyless read example (`arkiv/examples/swarm-read.ts`)
 - [x] App: opt-in "Load labels from the Swarm archive" (Settings), with an IP warning, on the Privacy page and in the README exceptions table
+- [x] Web app mirrored on Swarm (Private mode verified from it), recorded on Arkiv (`snapshot:web`)
 - [ ] **Jayden:** demo video timestamp in `/arkiv/swarm.md` (placeholder under "## Demo video")
 - [ ] Postage batch details, if the Swarm team shares them
 
