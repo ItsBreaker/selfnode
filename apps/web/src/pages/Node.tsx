@@ -10,6 +10,7 @@ import {
   type NodeInfo,
   type NodeSettings,
   type NodeStatus,
+  type SyncStage,
   type Preflight,
 } from "../desktop";
 import { Badge, StatusDot, type Tone } from "../ui/Badge";
@@ -109,12 +110,22 @@ const STATE_LABEL: Record<NodeStatus["state"], string> = {
   error: "Error",
 };
 
-const eta = (s: number | null) =>
-  s === null
-    ? "estimating…"
-    : s < 3600
-      ? `${Math.max(1, Math.round(s / 60))} min`
-      : `${(s / 3600).toFixed(1)} h`;
+const eta = (s: number) =>
+  s < 3600 ? `${Math.max(1, Math.round(s / 60))} min` : `${(s / 3600).toFixed(1)} h`;
+
+/** The client's own words for what it's doing; no guessed ETA. */
+function Stage({ stage }: { stage: SyncStage | null }) {
+  if (!stage) return null;
+  return (
+    <dd className="text-caption">
+      <span className="font-medium text-text">{stage.label}</span>
+      {stage.percent !== undefined && (
+        <span className="font-mono tabular"> · {stage.percent.toFixed(1)}%</span>
+      )}
+      {stage.detail && <span className="text-muted"> · {stage.detail}</span>}
+    </dd>
+  );
+}
 
 function NodeManager() {
   const bridge = desktop;
@@ -239,6 +250,7 @@ function NodeManager() {
                         ? ` / ${status.execution.highestBlock.toLocaleString("en-US")}`
                         : ""}
                     </dd>
+                    <Stage stage={status.execution.stage} />
                     <dd className="text-caption text-muted">
                       {status.execution.peers ?? "—"} peers
                     </dd>
@@ -252,6 +264,7 @@ function NodeManager() {
                         ? `slot ${status.consensus.headSlot.toLocaleString("en-US")}`
                         : "—"}
                     </dd>
+                    <Stage stage={status.consensus.stage} />
                     <dd className="text-caption text-muted">
                       {status.consensus.peers ?? "—"} peers
                       {status.consensus.syncDistance
@@ -262,9 +275,13 @@ function NodeManager() {
                   {status.state === "syncing" && (
                     <div className="col-span-2">
                       <dt className="text-caption font-medium uppercase tracking-[0.06em] text-muted">
-                        Time to sync (estimate)
+                        Time to sync
                       </dt>
-                      <dd>{eta(status.etaSeconds)}</dd>
+                      <dd>
+                        {status.etaSeconds !== null
+                          ? `About ${eta(status.etaSeconds)}, from the measured block rate`
+                          : "Not estimated: Nethermind only reports block progress after the state download (snap sync), so the stages above are the real progress."}
+                      </dd>
                     </div>
                   )}
                 </dl>

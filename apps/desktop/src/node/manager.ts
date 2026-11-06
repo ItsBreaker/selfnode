@@ -28,6 +28,15 @@ import { ensureInstalled, type Installed } from "./install";
 import { currentPlatform, type ClientId, type Manifest } from "./manifest";
 import { diskSpace, diskTooLow, preflight } from "./preflight";
 import { startClient, type ManagedProcess } from "./process";
+import {
+  describeNethermind,
+  describeNimbus,
+  emptyNethermindView,
+  readNethermindLine,
+  type NethermindLogView,
+  type NimbusSyncing,
+  type SyncStage,
+} from "./stage";
 
 export const EL_RPC = `http://127.0.0.1:${EL_RPC_PORT}`;
 const CL_REST = `http://127.0.0.1:${CL_REST_PORT}`;
@@ -60,6 +69,8 @@ export interface NodeStatus {
     currentBlock: number | null;
     highestBlock: number | null;
     peers: number | null;
+    /** What Nethermind says it's doing (from its sync log lines and eth_syncing). */
+    stage: SyncStage | null;
   };
   consensus: {
     running: boolean;
@@ -67,8 +78,10 @@ export interface NodeStatus {
     headSlot: number | null;
     syncDistance: number | null;
     peers: number | null;
+    /** What Nimbus says it's doing (from /eth/v1/node/syncing). */
+    stage: SyncStage | null;
   };
-  /** Seconds, from the recent execution sync rate; null when unknown. */
+  /** Seconds, from the measured block rate while catching up blocks; null otherwise (never guessed). */
   etaSeconds: number | null;
   disk: { freeGB: number; totalGB: number } | null;
   dataDir: string;
@@ -113,6 +126,8 @@ export class NodeManager {
   #poll: NodeJS.Timeout | null = null;
   #watchdog: NodeJS.Timeout | null = null;
   #samples: { t: number; block: number }[] = [];
+  /** Nethermind's sync stage, as read from its own log lines (reset on each start). */
+  #nmView: NethermindLogView = emptyNethermindView();
   #status: NodeStatus;
   #stopping = false;
 
@@ -151,8 +166,16 @@ export class NodeManager {
         currentBlock: null,
         highestBlock: null,
         peers: null,
+        stage: null,
       },
-      consensus: { running: false, syncing: null, headSlot: null, syncDistance: null, peers: null },
+      consensus: {
+        running: false,
+        syncing: null,
+        headSlot: null,
+        syncDistance: null,
+        peers: null,
+        stage: null,
+      },
       etaSeconds: null,
       disk: null,
       dataDir: this.settings?.dataDir ?? "",
@@ -286,6 +309,7 @@ export class NodeManager {
   }
 
   #launch(client: ClientId, inst: Installed, args: string[], logDir: string): void {
+    if (client === "nethermind") this.#nmView = emptyNethermindView();
     this.#log("selfnode", `Starting ${client} ${inst.version}`);
     writeFileSync(this.#marker(client), new Date().toISOString());
     this.#cleanLine[client] = false;
@@ -299,6 +323,7 @@ export class NodeManager {
       logDir,
       onLine: (l) => {
         this.#log(client, l);
+        if (client === "nethermind") this.#nmView = readNethermindLine(this.#nmView, l);
         if (CLEAN_SHUTDOWN[client].test(l)) this.#cleanLine[client] = true;
         recent.push(l);
         if (recent.length > 200) recent.shift();
@@ -389,15 +414,14 @@ export class NodeManager {
     }
     try {
       const [s, p] = await Promise.all([
-        this.#rest<{ head_slot: string; sync_distance: string; is_syncing: boolean }>(
-          "/eth/v1/node/syncing",
-        ),
+        this.#rest<NimbusSyncing & { head_slot: string }>("/eth/v1/node/syncing"),
         this.#rest<{ connected: string }>("/eth/v1/node/peer_count"),
       ]);
       cs.syncing = s.is_syncing;
       cs.headSlot = Number(s.head_slot);
       cs.syncDistance = Number(s.sync_distance);
       cs.peers = Number(p.connected);
+      cs.stage = describeNimbus(s);
     } catch {
       /* not answering yet */
     }
@@ -411,6 +435,8 @@ export class NodeManager {
         eta = Math.round((ex.highestBlock - ex.currentBlock) / rate);
       }
     }
+    ex.stage = ex.running ? describeNethermind(this.#nmView, ex) : null;
+    if (!cs.running) cs.stage = null;
     const synced = isSynced(ex, cs, headAgeSeconds);
     const busy = ["paused-battery", "paused-low-disk", "stopping", "error"].includes(
       this.#status.state,

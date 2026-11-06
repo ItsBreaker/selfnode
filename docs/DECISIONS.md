@@ -590,3 +590,27 @@ This supersedes the "experimental on Windows" entries above.
   Helios and node endpoints), so bzz.limo needed no new entry. Narrowing it to
   the gateway would have broken custom endpoints; the opt-in gate is in the app,
   not the CSP.
+
+## Node page: real sync stages instead of a block-number ETA (2026-11-06)
+
+- **Why:** during snap sync Nethermind's `eth_syncing` reports `currentBlock: 0`
+  until the state download finishes, so a block-rate ETA stays on
+  "estimating…" for hours. Seen on a real Sepolia node: Nethermind `#0 /
+12,077,382`, 3–7 peers, `health_nodeStatus` "Still syncing"; Nimbus at the
+  head (`sync_distance` 0) but `is_optimistic: true`, waiting for the execution
+  client.
+- **Nethermind's own stage RPC exists but stays off:** `debug_getSyncStage`
+  answers "namespace 'Debug' is disabled". We keep the Debug namespace off on
+  the RPC port, so the stage comes from Nethermind's log lines, which the manager
+  already receives. The markers (`Sync mode changed from … to …`, `Snap … State
+Ranges (Phase 1 of 2)`, `State Sync (Phase 2 of 2, healing)`, `Beacon/Old
+Headers`, `Waiting for peers...`) are strings in the shipped 2.2.2 binary;
+  unknown modes are shown as-is.
+- **Nimbus:** from `/eth/v1/node/syncing` (`is_syncing`, `sync_distance`,
+  `is_optimistic`, `el_offline`).
+- **No guessed ETA:** a percentage only when the client printed one; "Time to
+  sync" only from a measured block rate while catching up blocks, otherwise it
+  says it isn't estimated and why.
+- **Not released:** in `main` for the **next desktop build**; v0.1.1-hackathon
+  doesn't have it. The exact log layouts beyond these markers should be checked
+  against a live node's Logs panel when that build is made.

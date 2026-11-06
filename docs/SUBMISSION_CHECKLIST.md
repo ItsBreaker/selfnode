@@ -53,6 +53,7 @@ Built from section 3 of the build brief. Tick as completed.
 - [x] CI builds for macOS (universal dmg) and Windows (NSIS) with SHA-256 checksums
 - [x] `apps/desktop/node-manifest.json` reviewed by Jayden; `maintainerReviewed` is true
 - [x] Desktop pre-release published: https://github.com/ItsBreaker/selfnode/releases/tag/v0.1.1-hackathon (unsigned .dmg/.exe + SHA256SUMS.txt), linked from the web Download page, README and demo script. v0.1.0-hackathon is kept and marked superseded.
+- [ ] Next desktop build (not released yet): Node page shows real sync stages (`apps/desktop/src/node/stage.ts`) instead of a block-number ETA
 - [x] Windows graceful shutdown: real Ctrl+C, verified by the node-shutdown CI job on windows-latest and macos-latest (label now "Tested in CI on Windows; graceful shutdown verified")
 
 ## Final checks (2026-11-06)

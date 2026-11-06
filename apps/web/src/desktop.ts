@@ -14,6 +14,13 @@ export type NodeState =
   | "stopping"
   | "error";
 
+/** What a client says it's doing; a percentage only when the client printed one. */
+export interface SyncStage {
+  label: string;
+  detail?: string;
+  percent?: number;
+}
+
 export interface NodeStatus {
   state: NodeState;
   message: string;
@@ -23,6 +30,7 @@ export interface NodeStatus {
     currentBlock: number | null;
     highestBlock: number | null;
     peers: number | null;
+    stage: SyncStage | null;
   };
   consensus: {
     running: boolean;
@@ -30,6 +38,7 @@ export interface NodeStatus {
     headSlot: number | null;
     syncDistance: number | null;
     peers: number | null;
+    stage: SyncStage | null;
   };
   etaSeconds: number | null;
   disk: { freeGB: number; totalGB: number } | null;
