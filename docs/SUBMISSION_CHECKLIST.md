@@ -43,3 +43,10 @@ Built from section 3 of the build brief. Tick as completed.
 - [x] `docs/DEMO_SCRIPT.md` (3-minute path)
 - [ ] **Jayden:** record the demo video (add its timestamp to `/arkiv/swarm.md` if the Swarm bonus is done)
 - [x] Deployed: https://selfnode.jhfe.workers.dev/ (Cloudflare Worker, strict security headers, verified live)
+
+## Desktop
+
+- [x] Electron app over `app://` with the security checklist (contextIsolation, sandbox, no nodeIntegration, typed validated bridge, new windows/navigation locked, strict CSP, devtools off when packaged)
+- [x] Node manager: pre-flight, verified downloads, pruned Sepolia (Nethermind + Nimbus), sync progress, auto-switch, pause on battery and low disk, clean shutdown, logs
+- [x] CI builds for macOS (universal dmg) and Windows (NSIS) with SHA-256 checksums
+- [ ] **Jayden:** review `apps/desktop/node-manifest.json`, then set `maintainerReviewed` to true

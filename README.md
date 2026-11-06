@@ -37,6 +37,39 @@ pnpm check                           # typecheck, lint, format, tests
 Node 26 and pnpm 12. No API keys are needed to run the app. Optional scripts read
 keys from a local `.env` (see [`.env.example`](.env.example)).
 
+## Desktop app and node manager
+
+The same UI, served from `app://selfnode` with the website's security headers,
+in a sandboxed, context-isolated Electron window. The Node page adds a node
+manager for a **pruned Sepolia node: Nethermind (execution) + Nimbus
+(consensus)**. Both are **minority clients**, a deliberate choice that supports
+Ethereum's client diversity.
+
+- **Verified binaries only.** Downloads come from the official GitHub releases
+  pinned in [`apps/desktop/node-manifest.json`](apps/desktop/node-manifest.json).
+  The archive's SHA-256 must match, and Nimbus's binary must also match the
+  SHA-512 in its release notes. The installed files are re-hashed before every
+  start. Nothing updates automatically.
+- **Smallest footprint.** Nethermind skips historical bodies and receipts and
+  prunes history and state; Nimbus checkpoint-syncs without backfill and prunes
+  history. Each flag is cited in
+  [`node/manager.ts`](apps/desktop/src/node/manager.ts).
+- **Disk safety.** The pre-flight check uses the clients' own published figures
+  (Sepolia ≈ 212 GB execution + 200 GB consensus, plus four weeks of growth). It
+  refuses to start without the larger of 50 GB or 10% free left over, and a
+  watchdog pauses the node cleanly below that. You can pick the data directory
+  (e.g. an external SSD).
+- **Laptop-friendly.** It pauses on battery (optional) and stops cleanly on quit.
+  RPC, Engine API and REST listen on 127.0.0.1 only, and logs are in the app.
+- **Reads switch to your node** once it's synced. Transactions are still broadcast
+  through Anon-RPC.
+- Intel Macs can run the app but not the node manager: neither Nimbus nor
+  Lighthouse publishes an Intel macOS build.
+
+Unsigned builds (universal `.dmg`, NSIS `.exe`) with `SHA256SUMS.txt` come from
+[the desktop workflow](.github/workflows/desktop.yml). Run locally with
+`pnpm --filter @selfnode/desktop start`.
+
 ## Deploy
 
 Live at **https://selfnode.jhfe.workers.dev/**. It's a Cloudflare Worker with static assets and no server code

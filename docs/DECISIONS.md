@@ -400,3 +400,45 @@ update when ESLint ships a patched range.
 - **Electron 45.2.2:** the newest release older than pnpm's minimum release age.
   Its postinstall (binary download from Electron's GitHub releases, checked
   against SHA-256 sums) is allowed in `allowBuilds`.
+- **Execution client: Nethermind, not Geth** (the maintainer's decision). Geth no
+  longer publishes official macOS binaries: its store's last macOS build is
+  1.15.6 (about March 2025), too old for today's Sepolia, and its downloads page
+  points Mac users to Homebrew. Nethermind 2.2.2 publishes official macOS ARM64,
+  macOS x64 and Windows x64 builds with GitHub-recorded SHA-256 digests.
+  Nethermind + Nimbus are both minority clients, which helps client diversity.
+- **Consensus client: Nimbus 26.10.2** on macOS ARM64 and Windows x64. Neither
+  Nimbus nor Lighthouse publishes an Intel macOS build, so Intel Macs get a "not
+  supported on this Mac" message rather than an unofficial binary.
+- **Verification:** the archive must match the SHA-256 pinned from the GitHub
+  release digest. For Nimbus, the extracted `nimbus_beacon_node` must also match
+  the SHA-512 in its release notes (both were checked for macOS and Windows when
+  the manifest was written). A whole-tree hash of each install is re-checked
+  before every start. There's no gpg on the build machine, so `.asc` signatures
+  aren't checked.
+- **Disk-minimising flags** (cited in `src/node/manager.ts`): Nethermind
+  `--config sepolia`, `Sync.DownloadBodiesInFastSync=false`,
+  `Sync.DownloadReceiptsInFastSync=false`, `History.Pruning=Rolling` (82125-epoch
+  minimum window), `Pruning.Mode=Hybrid` with `FullPruningTrigger=VolumeFreeSpace`;
+  Nimbus `trustedNodeSync --backfill=false` and `--history=prune`. Every flag was
+  checked against the shipped binaries' `--help`.
+- **Disk figures (official):** Nethermind's measured 2.2.0 database sizes. Sepolia
+  is 893 GB with the default config, of which blocks are 548 GB and receipts
+  132 GB. Keeping only state, headers, code and blobs gives about 212 GB for
+  Sepolia and about 325 GB for mainnet. Nimbus's hardware guide says 200 GB.
+  Growth: Nethermind's "around 30 GB each week" for state, with 4 weeks buffered.
+  So Sepolia needs 532 GB and mainnet 645 GB, plus the larger of 50 GB or 10% free.
+- **Would mainnet fit in 800 GB?** The initial sync, yes: 645 GB plus about
+  90 GB of margin. Long term it's tight. State grows about 30 GB a week, and
+  Nethermind's full pruning wants at least 250 GB of free headroom while it runs,
+  so an 800 GB drive would need regular pruning or resyncs. Nethermind's docs
+  recommend 2 TB. This build is Sepolia-only.
+- **Verified locally (macOS ARM64, 2026-11-06)**, driven through the UI:
+  pre-flight passed (883 GB free vs 532 + 99 margin); both clients were
+  downloaded and verified; checkpoint sync; Nethermind reached 6–7 peers and Nimbus
+  2–4 within a minute; RPC 8545, Engine 8551 and REST 5052 bound to 127.0.0.1;
+  a clean stop left no client processes. A bad IPC argument was rejected.
+  `require` and `process` are undefined in the page.
+- **Packaging:** electron-builder 26.18.1, universal unsigned `.dmg` (225 MB) and
+  NSIS `.exe`, `publish: null`. The node binaries aren't bundled; they're
+  downloaded and verified at runtime. The packaged app was re-tested (Nox, Helios,
+  node pre-flight). electron-winstaller's install script (Squirrel, unused) is denied.
