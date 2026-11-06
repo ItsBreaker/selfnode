@@ -1,0 +1,67 @@
+{
+  "$comment": "Node binaries the desktop app may download, and the disk figures its pre-flight check uses. To be reviewed by the maintainer before release. A binary is executed only if its archive matches sha256 (and, for Nimbus, the extracted binary also matches the sha512 Nimbus publishes). Nothing here updates automatically.",
+  "checkedAt": "2026-11-06",
+  "maintainerReviewed": false,
+  "network": "sepolia",
+  "clients": {
+    "nethermind": {
+      "role": "execution",
+      "version": "2.2.2",
+      "license": "GPL-3.0 and LGPL-3.0 (LICENSE-GPL, LICENSE-LGPL in the repository)",
+      "release": "https://github.com/NethermindEth/nethermind/releases/tag/2.2.2",
+      "checksumSource": "GitHub release asset digest (SHA-256) for each file on the official release",
+      "platforms": {
+        "darwin-arm64": {
+          "url": "https://github.com/NethermindEth/nethermind/releases/download/2.2.2/nethermind-2.2.2-be201120-macos-arm64.zip",
+          "sha256": "85ee284870f00a37369e658898f997c4955fa492dcc44477a617d1670b5f00d1",
+          "archive": "zip",
+          "binary": "nethermind"
+        },
+        "win32-x64": {
+          "url": "https://github.com/NethermindEth/nethermind/releases/download/2.2.2/nethermind-2.2.2-be201120-windows-x64.zip",
+          "sha256": "a120c5c838212ced81052386625270cea1972820e5a3b0386775f61c5388db88",
+          "archive": "zip",
+          "binary": "nethermind.exe"
+        }
+      }
+    },
+    "nimbus": {
+      "role": "consensus",
+      "version": "26.10.2",
+      "license": "Apache-2.0 OR MIT",
+      "release": "https://github.com/status-im/nimbus-eth2/releases/tag/v26.10.2",
+      "checksumSource": "GitHub release asset digest (SHA-256) for the archive; SHA-512 of nimbus_beacon_node from the release notes",
+      "platforms": {
+        "darwin-arm64": {
+          "url": "https://github.com/status-im/nimbus-eth2/releases/download/v26.10.2/nimbus-eth2_macOS_arm64_26.10.2_0abc0dd0.tar.gz",
+          "sha256": "5a9d12325af6c07c4988fa249e4deaef11eeb07f1e6f4dc8c820dfa939c60352",
+          "archive": "tar.gz",
+          "binary": "nimbus-eth2_macOS_arm64_26.10.2_0abc0dd0/build/nimbus_beacon_node",
+          "binarySha512": "bf635e887e387be62d1a716ae301506b559cf9446c5016c1423c2af41ec15998402f34a10dcbe8db05dfb63326b00516c4774230d4ddb011a808eac58c8052d8"
+        },
+        "win32-x64": {
+          "url": "https://github.com/status-im/nimbus-eth2/releases/download/v26.10.2/nimbus-eth2_Windows_amd64_26.10.2_0abc0dd0.tar.gz",
+          "sha256": "0fd1c6c03a8ac31e012551305b75511dc12d5be7ba62bf8618a70b3ffb20d0c4",
+          "archive": "tar.gz",
+          "binary": "nimbus-eth2_Windows_amd64_26.10.2_0abc0dd0/build/nimbus_beacon_node.exe",
+          "binarySha512": "a3231d00230b689ee8e68810eacf49bba3c106c3369f70490fe1a83ad9aab010b0dcc390c1861348493965557e2f04ff1b2da6cfe3f81d9bc8e64be3c6e3bc13"
+        }
+      }
+    }
+  },
+  "checkpointSync": {
+    "$comment": "From https://github.com/eth-clients/checkpoint-sync-endpoints (endpoints/sepolia.yaml). User-configurable.",
+    "sepolia": [
+      "https://checkpoint-sync.sepolia.ethpandaops.io",
+      "https://beaconstate-sepolia.chainsafe.io"
+    ]
+  },
+  "disk": {
+    "$comment": "GB (10^9 bytes). Execution figures: Nethermind's per-directory database sizes measured on 2.2.0 (https://docs.nethermind.io/fundamentals/database#database-size), keeping only state, headers, code and blobs because Selfnode disables historical bodies/receipts (Sync.DownloadBodiesInFastSync/DownloadReceiptsInFastSync = false). Consensus: Nimbus hardware requirements (https://nimbus.guide/hardware.html). Growth: Nethermind state-pruning docs ('increases by around 30 GB each week', https://docs.nethermind.io/fundamentals/state-pruning).",
+    "sepolia": { "executionGB": 212, "consensusGB": 200, "growthGBPerWeek": 30, "growthWeeks": 4 },
+    "mainnet": { "executionGB": 325, "consensusGB": 200, "growthGBPerWeek": 30, "growthWeeks": 4 },
+    "safetyMarginGB": 50,
+    "safetyMarginFraction": 0.1,
+    "minRamGB": 16
+  }
+}
