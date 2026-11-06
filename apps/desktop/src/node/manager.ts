@@ -186,7 +186,10 @@ export class NodeManager {
       nimbus: join(root, "nimbus"),
       logs: join(root, "logs"),
     };
-    for (const p of Object.values(d)) mkdirSync(p, { recursive: true });
+    // Nimbus's folder is NOT pre-created: Nimbus creates it with owner-only
+    // permissions and refuses (on Windows: "Data folder has insecure ACL") a
+    // folder that inherited broader access.
+    for (const p of [d.root, d.nethermind, d.logs]) mkdirSync(p, { recursive: true });
     return d;
   }
   #marker(client: ClientId): string {
@@ -235,8 +238,10 @@ export class NodeManager {
       const cl = await ensureInstalled(this.manifest, "nimbus", platform, this.binRoot, progress);
       const dirs = this.#dirs();
       const jwt = this.#jwt(dirs.root);
-      if (readdirSync(dirs.nimbus).length === 0)
+      if (!existsSync(dirs.nimbus) || readdirSync(dirs.nimbus).length === 0) {
+        rmSync(dirs.nimbus, { recursive: true, force: true }); // Nimbus creates it securely
         await this.#checkpointSync(cl, dirs.nimbus, dirs.logs);
+      }
       this.#set({ state: "starting", message: "Starting Nethermind and Nimbus…" });
       this.#launch("nethermind", el, nethermindArgs(dirs.nethermind, jwt), dirs.logs);
       this.#launch("nimbus", cl, nimbusArgs(dirs.nimbus, jwt), dirs.logs);
@@ -472,7 +477,8 @@ export class NodeManager {
     if (this.running) throw new Error("Stop the node before resyncing.");
     const dirs = this.#dirs();
     rmSync(dirs[client], { recursive: true, force: true });
-    mkdirSync(dirs[client], { recursive: true });
+    // Nimbus recreates its folder itself, with owner-only permissions.
+    if (client === "nethermind") mkdirSync(dirs.nethermind, { recursive: true });
     rmSync(this.#marker(client), { force: true });
     this.#log(
       "selfnode",

@@ -225,10 +225,13 @@ function startWindows(o: StartOptions): ManagedProcess {
   const stopErr = tail(errLog, out);
   const exited = new Promise<ExitInfo>((resolve) => {
     launcher.on("exit", () => {
-      stopOut();
-      stopErr();
-      running = false;
-      resolve({ code: exitCode, signal: null });
+      // Give the log files a moment to flush, then read what's left before reporting the exit.
+      setTimeout(() => {
+        stopOut();
+        stopErr();
+        running = false;
+        resolve({ code: exitCode, signal: null });
+      }, 750);
     });
   });
   const sendCtrlC = async () => {

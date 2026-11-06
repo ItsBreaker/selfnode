@@ -39,7 +39,8 @@ if (!platform) throw new Error(`No official builds for ${process.platform}-${pro
 const manifest = loadManifest(appDir);
 const binRoot = join(work, "bin");
 const data = { nethermind: join(work, "data/nethermind"), nimbus: join(work, "data/nimbus") };
-for (const d of [logs, data.nethermind, data.nimbus]) mkdirSync(d, { recursive: true });
+// Nimbus's data folder is not pre-created: Nimbus creates it with owner-only permissions.
+for (const d of [logs, data.nethermind]) mkdirSync(d, { recursive: true });
 const jwt = join(work, "data/jwt.hex");
 writeFileSync(jwt, Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("hex"), {
   mode: 0o600,
