@@ -40,20 +40,50 @@ export interface TransferRow {
   logIndex: number;
 }
 
+/**
+ * A block number as a bigint, from whatever a caller hands us: a bigint, a
+ * safe integer, a decimal or 0x string (what JSON or a cache gives back), or
+ * an object with a `number` field (a block). Anything else is a bug in the
+ * caller and throws a TypeError naming what it got, instead of failing later
+ * with "Cannot mix BigInt and other types".
+ */
+export function asBlockNumber(v: unknown): bigint {
+  if (typeof v === "bigint") {
+    if (v < 0n) throw new TypeError(`Block number can't be negative: ${v}`);
+    return v;
+  }
+  if (typeof v === "number" && Number.isSafeInteger(v) && v >= 0) return BigInt(v);
+  if (typeof v === "string" && /^(0x[0-9a-f]+|[0-9]+)$/i.test(v.trim())) return BigInt(v.trim());
+  if (v !== null && typeof v === "object" && "number" in v)
+    return asBlockNumber((v as { number: unknown }).number);
+  throw new TypeError(
+    `Expected a block number, got ${v === null ? "null" : typeof v}${typeof v === "object" && v ? ` (${Object.keys(v).join(", ")})` : ""}`,
+  );
+}
+
+/** A count of blocks or transactions as a positive integer (at least 1). */
+const asCount = (n: unknown): number => {
+  const v = Number(n);
+  if (!Number.isFinite(v)) throw new TypeError(`Expected a count, got ${String(n)}`);
+  return Math.max(1, Math.floor(v));
+};
+
 const range = (from: bigint, count: number) =>
   Array.from({ length: count }, (_, i) => from - BigInt(i)).filter((n) => n >= 0n);
 
 /** The `count` blocks ending at `head` (newest first). */
 export async function latestBlocks(
   client: PublicClient,
-  head: bigint,
-  count: number,
+  headIn: bigint,
+  countIn: number,
 ): Promise<BlockRow[]> {
+  const head = asBlockNumber(headIn);
+  const count = asCount(countIn);
   const blocks = await Promise.all(
     range(head, count).map((n) => client.getBlock({ blockNumber: n })),
   );
   return blocks.map((b) => ({
-    number: b.number as bigint,
+    number: asBlockNumber(b.number),
     timestamp: b.timestamp,
     txCount: b.transactions.length,
     gasUsed: b.gasUsed,
@@ -80,7 +110,7 @@ const toTx = (
   t: { hash: Hex; from: Address; to: Address | null; value: bigint; input: Hex },
 ): TxRow => ({
   hash: t.hash,
-  blockNumber: b.number as bigint,
+  blockNumber: asBlockNumber(b.number),
   timestamp: b.timestamp,
   from: t.from,
   to: t.to,
@@ -95,16 +125,19 @@ const toTx = (
  */
 export async function latestTransactions(
   client: PublicClient,
-  head: bigint,
-  want: number,
-  maxBlocks = 20,
+  headIn: bigint,
+  wantIn: number,
+  maxBlocksIn = 20,
 ): Promise<{ txs: TxRow[]; nextBlock: bigint | null }> {
+  const head = asBlockNumber(headIn);
+  const want = asCount(wantIn);
+  const maxBlocks = asCount(maxBlocksIn);
   const txs: TxRow[] = [];
   let last = head;
   // One full block at a time: a busy block already has 100+ transactions.
   for await (const part of fullBlocks(client, head, maxBlocks, 1)) {
     for (const b of part) {
-      last = b.number as bigint;
+      last = asBlockNumber(b.number);
       // Within a block, later transactions are newer.
       for (const t of [...b.transactions].reverse()) txs.push(toTx(b, t));
     }
@@ -131,14 +164,17 @@ export interface AddressScan {
 export async function scanAddress(
   client: PublicClient,
   address: Address,
-  head: bigint,
-  blocks: number,
+  headIn: bigint,
+  blocksIn: number,
   onProgress?: (scanned: number) => void,
   /** Token contracts to look for transfers of (public RPCs require an address filter). */
   tokens: Address[] = [],
 ): Promise<AddressScan> {
+  const head = asBlockNumber(headIn);
+  const blocks = asCount(blocksIn);
   const a = address.toLowerCase();
-  const fromBlock = head - BigInt(Math.max(1, blocks) - 1) > 0n ? head - BigInt(blocks - 1) : 0n;
+  const span = BigInt(blocks - 1);
+  const fromBlock = head > span ? head - span : 0n;
   const transfer = erc20Abi.find((x) => x.type === "event" && x.name === "Transfer");
   if (!transfer || transfer.type !== "event")
     throw new Error("Transfer event missing from erc20Abi");
@@ -189,7 +225,7 @@ export async function scanAddress(
     seen.add(key);
     transfers.push({
       hash: l.transactionHash as Hex,
-      blockNumber: l.blockNumber as bigint,
+      blockNumber: asBlockNumber(l.blockNumber),
       token: l.address,
       from,
       to,

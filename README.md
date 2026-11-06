@@ -185,7 +185,7 @@ Every exception, and why:
 - MIT licence. Pinned exact dependency versions with a committed lockfile.
 - Dependency install scripts are blocked except `esbuild`, and pnpm's
   minimum-release-age policy applies with no exceptions.
-- CI runs typecheck, lint, format and 200 tests on every code push, and gitleaks on every push; the macOS and Windows desktop builds run when desktop or core code changes, on release tags, or on demand.
+- CI runs typecheck, lint, format and 210 tests on every code push, and gitleaks on every push; the macOS and Windows desktop builds run when desktop or core code changes, on release tags, or on demand.
 - Builds with `pnpm install && pnpm --filter @selfnode/web build`.
 
 **Privacy**

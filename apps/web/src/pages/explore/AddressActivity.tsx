@@ -14,6 +14,7 @@ import { activityStore } from "../../storage/db";
 import { Amount } from "../../ui/Amount";
 import { Badge } from "../../ui/Badge";
 import { Callout } from "../../ui/Callout";
+import { QueryError } from "../../ui/QueryError";
 import { LabeledAddress } from "../../ui/LabeledAddress";
 import { Panel } from "../../ui/Panel";
 import { Segmented } from "../../ui/Segmented";
@@ -88,10 +89,12 @@ export function AddressActivity({ address }: { address: Address }) {
           </div>
         ) : scan.isError ? (
           <div className="p-5">
-            <Callout tone="danger" title="Couldn't scan the recent blocks">
-              {(scan.error as Error).message.split("\n")[0]}. Nothing was sent directly. Try a
-              smaller window.
-            </Callout>
+            <QueryError
+              error={scan.error}
+              what="the recent blocks"
+              note="Try a smaller window."
+              onRetry={() => void scan.refetch()}
+            />
           </div>
         ) : (
           <div className="flex flex-col">

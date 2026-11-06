@@ -1,3 +1,4 @@
+import { isRouteError } from "@selfnode/core";
 import { chains } from "@selfnode/core";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -5,6 +6,7 @@ import { useParams } from "react-router";
 import { formatGwei } from "viem";
 import { Page } from "../../app/AppShell";
 import { usePublicClient, useRouteKey, useSelfnode } from "../../state/selfnode";
+import { QueryError } from "../../ui/QueryError";
 import { Callout } from "../../ui/Callout";
 import { LabeledAddress } from "../../ui/LabeledAddress";
 import { TxTable } from "../../ui/TxTable";
@@ -37,6 +39,8 @@ export function BlockView() {
     <Page title={`Block ${Number(number).toLocaleString("en-US")}`}>
       {q.isPending ? (
         <Skeleton className="h-48 w-full" />
+      ) : q.isError && !isRouteError(q.error) ? (
+        <QueryError error={q.error} onRetry={() => void q.refetch()} />
       ) : q.isError ? (
         <Callout tone="danger" title={`Couldn't load this block on ${chains[settings.chain].name}`}>
           {(q.error as Error).message.split("\n")[0]}

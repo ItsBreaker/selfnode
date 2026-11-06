@@ -33,6 +33,7 @@ import { activityStore } from "../../storage/db";
 import { Address } from "../../ui/Address";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
+import { describeError } from "../../ui/QueryError";
 import { Callout } from "../../ui/Callout";
 import { Field } from "../../ui/Field";
 import { cx } from "../../ui/cx";
@@ -220,7 +221,7 @@ export function SendFlow() {
     } catch (e) {
       setPhase({
         k: "error",
-        message: `${(e as Error).message.split("\n")[0]}. Nothing was sent directly; Selfnode never falls back.`,
+        message: describeError(e),
       });
     }
   };

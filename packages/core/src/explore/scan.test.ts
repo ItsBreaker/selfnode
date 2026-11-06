@@ -1,6 +1,6 @@
 import { createPublicClient, custom, pad, toHex, type Address } from "viem";
 import { describe, expect, it } from "vitest";
-import { latestBlocks, latestTransactions, scanAddress } from "./scan.js";
+import { asBlockNumber, latestBlocks, latestTransactions, scanAddress } from "./scan.js";
 
 const A = "0x00000000000000000000000000000000000000aa" as Address;
 const B = "0x00000000000000000000000000000000000000bb" as Address;
@@ -159,5 +159,43 @@ describe("explorer reads without an indexer", () => {
   it("never asks for blocks below 0", async () => {
     const s = await scanAddress(client, A, 2n, 50);
     expect(s.fromBlock).toBe(0n);
+  });
+});
+
+// Regression: "Cannot mix BigInt and other types" on Explore after the tab sat
+// idle. Another page cached a different shape under the same query key, and a
+// cache or JSON round trip turns bigints into numbers or strings.
+describe("block numbers from caches and storage", () => {
+  it("accepts bigint, safe numbers, decimal and hex strings, and blocks", () => {
+    expect(asBlockNumber(5n)).toBe(5n);
+    expect(asBlockNumber(5)).toBe(5n);
+    expect(asBlockNumber("5")).toBe(5n);
+    expect(asBlockNumber("0x5")).toBe(5n);
+    expect(asBlockNumber({ number: 5n, timestamp: 1n, gasPrice: 1n })).toBe(5n);
+    expect(asBlockNumber({ number: "0x5" })).toBe(5n);
+  });
+
+  it("names what it got instead of failing with a BigInt mix-up", () => {
+    expect(() => asBlockNumber(undefined)).toThrow(/Expected a block number, got undefined/);
+    expect(() => asBlockNumber(1.5)).toThrow(TypeError);
+    expect(() => asBlockNumber({ hash: "0x1" })).toThrow(/got object \(hash\)/);
+    expect(() => asBlockNumber(-1n)).toThrow(/negative/);
+  });
+
+  it("latest blocks and transactions work with a head restored as a number, string or block", async () => {
+    const want = (await latestBlocks(client, 5n, 3)).map((b) => b.number);
+    for (const head of [5, "5", "0x5", { number: 5n, timestamp: 1n, gasPrice: 1n }]) {
+      const rows = await latestBlocks(client, head as unknown as bigint, 3);
+      expect(rows.map((b) => b.number)).toEqual(want);
+      const { txs, nextBlock } = await latestTransactions(client, head as unknown as bigint, 2);
+      expect(typeof nextBlock).toBe("bigint");
+      expect(txs.every((t) => typeof t.blockNumber === "bigint")).toBe(true);
+    }
+  });
+
+  it("an address scan with a restored head and a string window", async () => {
+    const r = await scanAddress(client, A, "5" as unknown as bigint, "3" as unknown as number);
+    expect(r.fromBlock).toBe(3n);
+    expect(r.toBlock).toBe(5n);
   });
 });

@@ -3,7 +3,7 @@ import { useBalances } from "../../state/balances";
 import { useSelfnode } from "../../state/selfnode";
 import { useWallet } from "../../state/wallet";
 import { Amount } from "../../ui/Amount";
-import { Callout } from "../../ui/Callout";
+import { QueryError } from "../../ui/QueryError";
 import { Panel } from "../../ui/Panel";
 import { Skeleton } from "../../ui/Skeleton";
 
@@ -20,9 +20,7 @@ export function BalancesPanel() {
           <Skeleton className="h-4 w-32" />
         </div>
       ) : b.isError ? (
-        <Callout tone="danger" title="Couldn't load balances through the active route">
-          {(b.error as Error).message.split("\n")[0]}
-        </Callout>
+        <QueryError error={b.error} what="balances" onRetry={() => void b.refetch()} />
       ) : (
         <div className="flex flex-col gap-4">
           <Amount value={b.data.native} decimals={18} symbol="ETH" size="h1" />

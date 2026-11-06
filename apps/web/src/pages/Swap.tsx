@@ -21,6 +21,7 @@ import {
   type PermitSingle,
   type Quote,
   type SwapWarning,
+  isRouteError,
 } from "@selfnode/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownUp } from "lucide-react";
@@ -40,6 +41,7 @@ import { useWallet } from "../state/wallet";
 import { activityStore } from "../storage/db";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
+import { describeError, firstLine } from "../ui/QueryError";
 import { Callout, EmptyState } from "../ui/Callout";
 import { Field } from "../ui/Field";
 import { Panel } from "../ui/Panel";
@@ -273,7 +275,7 @@ function SwapSepolia() {
     } catch (e) {
       setPhase({
         k: "error",
-        message: `${(e as Error).message.split("\n")[0]}. Nothing was sent directly; Selfnode never falls back.`,
+        message: describeError(e),
       });
     }
   };
@@ -297,7 +299,7 @@ function SwapSepolia() {
     } catch (e) {
       setPhase({
         k: "error",
-        message: `${(e as Error).message.split("\n")[0]}. Nothing was sent directly; Selfnode never falls back.`,
+        message: describeError(e),
       });
     }
   };
@@ -368,7 +370,9 @@ function SwapSepolia() {
                 </p>
               ) : quotes.isError ? (
                 <p className="mt-1 text-small text-danger">
-                  Couldn't get a quote through the active route.
+                  {isRouteError(quotes.error)
+                    ? "Couldn't get a quote through the active route."
+                    : `Something went wrong getting a quote (not a connection problem): ${firstLine(quotes.error)}`}
                 </p>
               ) : quotes.data && !quotes.data.length ? (
                 <p className="mt-1 text-small text-muted">No v4 pool could fill this size.</p>

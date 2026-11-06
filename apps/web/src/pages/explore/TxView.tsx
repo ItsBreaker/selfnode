@@ -1,3 +1,4 @@
+import { isRouteError } from "@selfnode/core";
 import { chains } from "@selfnode/core";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
@@ -7,6 +8,7 @@ import { useLabel } from "../../state/labels";
 import { usePublicClient, useRouteKey, useSelfnode } from "../../state/selfnode";
 import { Amount } from "../../ui/Amount";
 import { Badge } from "../../ui/Badge";
+import { QueryError } from "../../ui/QueryError";
 import { Callout } from "../../ui/Callout";
 import { CopyButton } from "../../ui/CopyButton";
 import { LabeledAddress } from "../../ui/LabeledAddress";
@@ -66,6 +68,8 @@ export function TxView() {
         </p>
         {!q.data && !q.isError ? (
           <Skeleton className="h-48 w-full" />
+        ) : !q.data && !isRouteError(q.error) ? (
+          <QueryError error={q.error} onRetry={() => void txq.refetch()} />
         ) : !q.data ? (
           <Callout
             tone="danger"

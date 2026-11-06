@@ -1,4 +1,5 @@
-import { anonNetworks, chains, formatAmount, ROUTES } from "@selfnode/core";
+import { OVERVIEW_HEAD_KEY } from "../state/queries";
+import { anonNetworks, chains, formatAmount, isRouteError, ROUTES } from "@selfnode/core";
 import { useQuery } from "@tanstack/react-query";
 import { MODE_COPY } from "../content/modes";
 import { Page } from "../app/AppShell";
@@ -13,6 +14,7 @@ import { Badge } from "../ui/Badge";
 import { Callout, EmptyState } from "../ui/Callout";
 import { MODE_LABEL, MODE_TONE, STATE_LABEL } from "../ui/ModeIndicator";
 import { Panel } from "../ui/Panel";
+import { QueryError } from "../ui/QueryError";
 import { Skeleton } from "../ui/Skeleton";
 import { TextLink } from "../ui/TextLink";
 import { useWallet } from "../state/wallet";
@@ -28,7 +30,7 @@ export function Overview() {
 
   // One batched round trip: block number and gas price (live, via the active route).
   const head = useQuery({
-    queryKey: ["head", routeKey],
+    queryKey: [OVERVIEW_HEAD_KEY, routeKey],
     queryFn: async () => {
       const [block, gasPrice] = await Promise.all([
         client.getBlock({ blockTag: "latest" }),
@@ -79,7 +81,12 @@ export function Overview() {
               value={head.data ? gwei(head.data.gasPrice) : "—"}
             />
           </dl>
-          {head.isError && (
+          {head.isError && !isRouteError(head.error) && (
+            <div className="mt-5">
+              <QueryError error={head.error} onRetry={() => void head.refetch()} />
+            </div>
+          )}
+          {head.isError && isRouteError(head.error) && (
             <div className="mt-5">
               <Callout tone="danger" title="Couldn't reach the network through the active route">
                 {(head.error as Error).message.split("\n")[0]}. Selfnode won't fall back to a direct

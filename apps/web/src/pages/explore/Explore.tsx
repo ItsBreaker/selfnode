@@ -9,15 +9,14 @@ import { Link } from "react-router";
 import { Page } from "../../app/AppShell";
 import { usePublicClient, useRouteKey, useSelfnode } from "../../state/selfnode";
 import { Button } from "../../ui/Button";
-import { Callout } from "../../ui/Callout";
 import { LabeledAddress } from "../../ui/LabeledAddress";
 import { Panel } from "../../ui/Panel";
 import { Skeleton } from "../../ui/Skeleton";
+import { QueryError, StaleNote } from "../../ui/QueryError";
 import { TxTable } from "../../ui/TxTable";
+import { exploreHeadQuery } from "../../state/queries";
 import { age } from "../../ui/age";
 import { SearchForm } from "./SearchDialog";
-
-const LIVE_MS = 12_000; // about one block
 
 function Loading() {
   return (
@@ -29,12 +28,10 @@ function Loading() {
   );
 }
 
-function Failed({ error }: { error: unknown }) {
+function Failed({ error, what, onRetry }: { error: unknown; what: string; onRetry: () => void }) {
   return (
     <div className="p-5">
-      <Callout tone="danger" title="Couldn't load this through the active route">
-        {(error as Error).message.split("\n")[0]}. Nothing was sent directly.
-      </Callout>
+      <QueryError error={error} what={what} onRetry={onRetry} />
     </div>
   );
 }
@@ -49,12 +46,7 @@ export function Explore() {
   const liveBlocks = blockCount <= 20;
   const liveTxs = txWant <= 25;
 
-  const head = useQuery({
-    queryKey: ["head", routeKey],
-    queryFn: () => client.getBlockNumber({ cacheTime: 0 }),
-    refetchInterval: LIVE_MS,
-    retry: false,
-  });
+  const head = useQuery(exploreHeadQuery(client, routeKey));
   const blocks = useQuery({
     enabled: head.data !== undefined,
     queryKey: [
@@ -63,17 +55,22 @@ export function Explore() {
       liveBlocks ? head.data?.toString() : "paused",
       blockCount,
     ],
-    queryFn: () => latestBlocks(client, head.data as bigint, blockCount),
+    queryFn: () => latestBlocks(client, head.data ?? 0n, blockCount),
     placeholderData: (prev) => prev,
     retry: false,
   });
   const txs = useQuery({
     enabled: head.data !== undefined,
     queryKey: ["latest-txs", routeKey, liveTxs ? head.data?.toString() : "paused", txWant],
-    queryFn: () => latestTransactions(client, head.data as bigint, txWant),
+    queryFn: () => latestTransactions(client, head.data ?? 0n, txWant),
     placeholderData: (prev) => prev,
     retry: false,
   });
+  const retryAll = () => {
+    void head.refetch();
+    void blocks.refetch();
+    void txs.refetch();
+  };
 
   return (
     <Page
@@ -89,10 +86,10 @@ export function Explore() {
             actions={<LiveBadge live={liveBlocks} fetching={blocks.isFetching} />}
           >
             {!blocks.data && head.isError ? (
-              <Failed error={head.error} />
+              <Failed error={head.error} what="the latest blocks" onRetry={retryAll} />
             ) : !blocks.data ? (
               blocks.isError ? (
-                <Failed error={blocks.error} />
+                <Failed error={blocks.error} what="the latest blocks" onRetry={retryAll} />
               ) : (
                 <Loading />
               )
@@ -169,10 +166,10 @@ export function Explore() {
             actions={<LiveBadge live={liveTxs} fetching={txs.isFetching} />}
           >
             {!txs.data && head.isError ? (
-              <Failed error={head.error} />
+              <Failed error={head.error} what="the latest transactions" onRetry={retryAll} />
             ) : !txs.data ? (
               txs.isError ? (
-                <Failed error={txs.error} />
+                <Failed error={txs.error} what="the latest transactions" onRetry={retryAll} />
               ) : (
                 <Loading />
               )
@@ -197,17 +194,6 @@ export function Explore() {
         </div>
       </div>
     </Page>
-  );
-}
-
-/** Shown above a table that still has data but couldn't refresh. */
-function StaleNote({ error }: { error: unknown }) {
-  if (!error) return null;
-  return (
-    <p className="border-b border-warning/40 bg-warning-soft px-5 py-2 text-caption text-warning">
-      Couldn&apos;t refresh ({(error as Error).message.split("\n")[0]?.slice(0, 120)}); showing the
-      last data. Retrying.
-    </p>
   );
 }
 

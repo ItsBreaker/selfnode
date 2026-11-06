@@ -8,6 +8,7 @@ import { usePublicClient, useRouteKey, useSelfnode } from "../../state/selfnode"
 import { Amount } from "../../ui/Amount";
 import { Badge } from "../../ui/Badge";
 import { AddressActivity } from "./AddressActivity";
+import { QueryError } from "../../ui/QueryError";
 import { Callout } from "../../ui/Callout";
 import { LabeledAddress } from "../../ui/LabeledAddress";
 import { Panel } from "../../ui/Panel";
@@ -98,9 +99,11 @@ export function AddressView() {
             {state.isPending ? (
               <Skeleton className="h-20 w-full" />
             ) : state.isError ? (
-              <Callout tone="danger" title="Couldn't load this address through the active route">
-                {(state.error as Error).message.split("\n")[0]}
-              </Callout>
+              <QueryError
+                error={state.error}
+                what="this address"
+                onRetry={() => void state.refetch()}
+              />
             ) : (
               <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 text-small">
                 <dt className="text-muted">Balance</dt>
