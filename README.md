@@ -146,22 +146,25 @@ Deploy with `pnpm --filter @selfnode/web deploy:cf`.
 
 ### Traffic share
 
-In a scripted end-to-end session against the **production build, served with the
-production security headers** (create a wallet, receive funds, then swap ETH →
-USDC and USDC → ETH through Permit2), **97 of 99 JSON-RPC calls (98.0%) went
-through Anon-RPC**. The other 2 were the disclosed bootstrap reads. **0** went
-direct. Settings → Traffic shows the live counter, by route, for the session and
-all time.
+In a scripted end-to-end session on the **live production site** (2026-11-07:
+create a wallet, receive funds, then swap ETH → USDC and USDC → ETH through
+Permit2), **111 of 115 JSON-RPC calls (96.5%) went through Anon-RPC**. The other
+4 were the disclosed bootstrap reads: 2 for Nox, and 2 for Nym, which starts in
+the background as the failover backup. **0** went direct. Only requests that got
+an answer are counted; failed or retried attempts are counted separately and
+don't change the share. (Earlier measurements, 98.0% and 97.9%, were taken
+before failover, when only one network started.) Settings → Traffic shows the
+live counter, by route, for the session and all time.
 
 Every exception, and why:
 
-| Route                                | Why it isn't anonymised                                                                                                                                                                                                                                                                                                                             |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Bootstrap read                       | Starting an anonymity network needs one read of its on-chain specifier (worker hash and resolvers) before the network exists. 2 calls per session. In My node mode it goes to your own node instead (when it's on the specifier's chain: Sepolia for Nox). The worker hash is pinned per network; a change stops and asks before the new code runs. |
-| Helios upstream (Verified mode only) | Helios accepts URLs, not a `fetch` function, so it can't use Anon-RPC. It's a separate mode the user chooses, labelled "Helios · direct".                                                                                                                                                                                                           |
-| Your node (My node mode only)        | Reads go to your own node. Broadcasts still use Anon-RPC.                                                                                                                                                                                                                                                                                           |
-| Direct, approved by you              | A one-off request the user explicitly confirmed, counted separately.                                                                                                                                                                                                                                                                                |
-| Swarm archive (opt-in)               | Only if the user clicks "Load labels from the Swarm archive": three public snapshot files from the bzz.limo gateway, SHA-256-checked against Arkiv. Plain downloads, not RPC, so not in the counter.                                                                                                                                                |
+| Route                                | Why it isn't anonymised                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bootstrap read                       | Starting an anonymity network needs one read of its on-chain specifier (worker hash and resolvers) before the network exists. 2 calls per network started: 4 per session with failover on (Nox, plus Nym started as the backup). In My node mode it goes to your own node instead (when it's on the specifier's chain: Sepolia for Nox). The worker hash is pinned per network; a change stops and asks before the new code runs. |
+| Helios upstream (Verified mode only) | Helios accepts URLs, not a `fetch` function, so it can't use Anon-RPC. It's a separate mode the user chooses, labelled "Helios · direct".                                                                                                                                                                                                                                                                                         |
+| Your node (My node mode only)        | Reads go to your own node. Broadcasts still use Anon-RPC.                                                                                                                                                                                                                                                                                                                                                                         |
+| Direct, approved by you              | A one-off request the user explicitly confirmed, counted separately.                                                                                                                                                                                                                                                                                                                                                              |
+| Swarm archive (opt-in)               | Only if the user clicks "Load labels from the Swarm archive": three public snapshot files from the bzz.limo gateway, SHA-256-checked against Arkiv. Plain downloads, not RPC, so not in the counter.                                                                                                                                                                                                                              |
 
 ## CROPS
 

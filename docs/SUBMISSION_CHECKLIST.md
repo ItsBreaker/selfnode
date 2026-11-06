@@ -68,5 +68,5 @@ Built from section 3 of the build brief. Tick as completed.
 
 - [x] gitleaks over the full git history (`gitleaks git --log-opts=--all`): 110 commits, no leaks (re-run 20:51 IST). Earlier working-tree hits were only the gitignored `.env` and local mirror reports, which hold public commit hashes.
 - [x] README re-checked (20:52 IST): feature table (incl. Swarm and the archive), entity counts, exceptions table, test count (152), architecture, and all 14 Uniswap line anchors verified against the source
-- [x] Traffic share: README's 98.0% (97 of 99, production build) is the latest measurement; the earlier 97.9% (95 of 97) is marked superseded in DECISIONS
+- [x] Traffic share: README's 96.5% (111 of 115, live production site, 2026-11-07, answered requests only; 4 bootstrap reads because Nym starts as the failover backup) is the latest measurement; 98.0% and 97.9% predate failover and are superseded
 - [x] Swarm bonus: snapshots on Swarm (public gateway), referenced from Arkiv; see `/arkiv/swarm.md`

@@ -735,6 +735,17 @@ Headers`, `Waiting for peers...`) are strings in the shipped 2.2.2 binary;
   switched back after 70 s with the notice; Test connection showed Nox OK in
   2.9 s and Nym "operation timed out".
 
+## Traffic share re-measured (2026-11-07)
+
+- **96.5%: 111 of 115 calls through Anon-RPC**, 4 bootstrap, 0 direct, in the
+  full create → fund → swap both ways session on the live site, with the new
+  counting (answered requests only).
+- **Why it's lower than 98.0%:** that run predates failover. Each network start
+  makes 2 bootstrap reads; with failover on, Nym starts in the background as
+  the backup, so a session now has 4 instead of 2. The counting change itself
+  can only lower the Anon-RPC count (failed attempts used to count as Anon-RPC).
+- Superseded: 98.0% (97 of 99) and 97.9% (95 of 97).
+
 ## Stale assets after a deploy (2026-11-06)
 
 - **Problem:** with single-page-app fallback, a missing `/assets/*` file (a chunk
