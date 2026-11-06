@@ -78,8 +78,11 @@ on Arkiv itself.
 
 ### `selfnode-snapshot` (`type = "snapshot"`), Swarm bonus phase
 
-`dataset`, `version`, `rowCount`, `sha256`, `swarmRef` (an unencrypted Swarm
-reference), `createdAt`. Not written yet.
+One per dataset (`rowKey = snapshot:<dataset>`): `dataset`, `version` (the
+snapshot file format, `selfnode-arkiv-snapshot/1`), `rowCount`, `sha256` (of the
+file), `swarmRef` (an unencrypted Swarm reference), `createdAt` (Unix seconds),
+plus the usual provenance (`source = selfnode/arkiv-snapshots`, `sourceCommit` =
+the datasets' source commits). Written by `--snapshot`; see [swarm.md](swarm.md).
 
 ## Expiration
 

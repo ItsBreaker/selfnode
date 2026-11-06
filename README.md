@@ -41,7 +41,7 @@ desktop and mobile) are in [`docs/screenshots/`](docs/screenshots/).
 | **Arkiv mirror**: open-licensed labels, scam list, tokens and function names, re-runnable importer                                                             | ✅ 3,349 entities on Rabdi                                                               |
 | **Privacy report** page: what every third party learns, per mode                                                                                               | ✅ live                                                                                  |
 | **Desktop app** (Electron, `app://`): same UI plus a node manager that downloads, verifies and runs a pruned Sepolia node (Nethermind + Nimbus)                | ✅ macOS Apple Silicon and Windows x64 (graceful shutdown tested in CI); unsigned builds |
-| Swarm snapshots of the mirrored datasets                                                                                                                       | ⏳ not built yet                                                                         |
+| **Swarm snapshots** of the mirrored datasets, referenced from Arkiv (`swarmRef` + SHA-256), and `--from-swarm` rebuild ([swarm.md](arkiv/swarm.md))            | ✅ 3 snapshots via the bzz.limo public gateway                                           |
 
 Signing is **Sepolia-only** in this build. Mainnet is read-only, and that's
 enforced in [`signer.ts`](packages/core/src/wallet/signer.ts) with tests.
@@ -254,9 +254,13 @@ about flagged recipients before you sign, and decode calldata.
   idempotent: it creates, patches, extends near expiry, or skips by a
   deterministic key. It guards a tGLM reserve. Run it with
   `pnpm --filter @selfnode/scripts arkiv:mirror [--dry-run]`.
+- **Swarm snapshots:** each dataset is also one unencrypted JSON file on Swarm,
+  pointed to by a `selfnode-snapshot` entity (`swarmRef`, `sha256`). `--snapshot`
+  uploads them; `--from-swarm` rebuilds Arkiv from them after verifying the
+  hash. Details, references and friction: [swarm.md](arkiv/swarm.md).
 - **Docs:** [schema](arkiv/schema.md) · [data quality](arkiv/data-quality.md) ·
   [reach](arkiv/reach.md) · [why Arkiv](arkiv/why-arkiv.md) ·
-  [friction](arkiv/friction.md)
+  [friction](arkiv/friction.md) · [Swarm](arkiv/swarm.md)
 
 **A runnable query** (no key needed). The full script is in
 [`arkiv/examples/query.ts`](arkiv/examples/query.ts):

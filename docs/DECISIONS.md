@@ -551,3 +551,32 @@ This supersedes the "experimental on Windows" entries above.
 - **The v0.1.0-hackathon Windows build predates this work.** Its notes say
   "experimental" and now point to v0.1.1-hackathon, the first release with
   graceful Windows shutdown, UPnP/NAT-PMP off, and damage detection with resync.
+
+## Swarm snapshots (2026-11-06, reduced scope)
+
+- **Gateway, not a Bee node.** No postage batch or Bee node was available, so
+  snapshots are uploaded through the **bzz.limo public gateway**, as the Swarm
+  team suggested. It stamps uploads with its own batch; the batch ID and
+  lifetime aren't exposed (no `/stamps`, `/tags`, `/stewardship`: all 404), so
+  retention is unknown. Reads fall back to `api.gateway.ethswarm.org`.
+- **Plain `fetch`, no new dependency.** `POST /bzz` returns the reference, so
+  neither `@ethersphere/swarm-cli` nor `@ethersphere/bee-js` is in the repo.
+- **The feasibility test used `npx`, outside our policy, and only in `/tmp`.**
+  `npx --yes @ethersphere/swarm-cli@3.7.0` (published by Swarm's
+  `ethersphereowner` / `ethswarm-devops` npm accounts from
+  github.com/ethersphere/swarm-cli) pinned the CLI but resolved its own
+  dependencies (bee-js, ethers, ws, …) to their latest matching versions,
+  **outside our minimum-release-age policy**. It ran from `/tmp` only, against a
+  47-byte test file; nothing from it is in the repo, the lockfile or any
+  workspace package.
+- **Snapshots are an export of Arkiv, not a re-read of the sources**, so the
+  archive is exactly what's mirrored. Canonical JSON (sorted rows and keys, no
+  timestamps inside) gives a stable SHA-256 and Swarm reference; unchanged data
+  means no new entity write.
+- **Trust:** the `selfnode-snapshot` entity (owner-scoped) carries the file's
+  SHA-256; `--from-swarm` rejects any download that doesn't match, then
+  recomputes every row's `contentHash` before writing anything back.
+- **First upload:** 3 snapshot entities, 0.000992 tGLM; balance stayed far above
+  the 2 tGLM reserve.
+- **App fallback ("Load labels from the Swarm archive"):** opt-in only, because
+  a gateway sees the reader's IP and Anon-RPC can't carry plain HTTP GETs.

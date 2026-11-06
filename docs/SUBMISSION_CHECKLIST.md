@@ -25,9 +25,11 @@ Built from section 3 of the build brief. Tick as completed.
 
 ## Arkiv + Swarm bonus
 
-- [ ] Dataset snapshots on Swarm, referenced by `snapshot` entities (`swarmRef`)
-- [ ] Unencrypted references only
-- [ ] `/arkiv/swarm.md` (all required sections incl. postage batch, Bee node, demo timestamp)
+- [x] Dataset snapshots on Swarm, referenced by `snapshot` entities (`swarmRef`): tokens, labels, sigs via the bzz.limo public gateway
+- [x] Unencrypted references only
+- [x] `/arkiv/swarm.md`: Swarm vs Arkiv, `swarmRef`, entity keys + references with links, batch (gateway's own, ID and lifetime not exposed), files, upload and read steps with real output, `--from-swarm` dry run, friction
+- [ ] **Jayden:** demo video timestamp in `/arkiv/swarm.md` (placeholder)
+- [ ] Postage batch details, if the Swarm team shares them
 
 ## Ethereum Foundation — Best Use of Anon-RPC
 
@@ -57,4 +59,4 @@ Built from section 3 of the build brief. Tick as completed.
 
 - [x] gitleaks over the full git history (`gitleaks git --log-opts=--all`): 84 commits, no leaks. Working-tree hits are only the gitignored `.env` and local mirror reports, which hold public commit hashes; no secrets found in them.
 - [x] README re-checked: feature table, test count, architecture, and all 14 Uniswap line anchors verified against the source
-- [ ] Swarm bonus: on hold, waiting on the Arkiv team
+- [x] Swarm bonus: snapshots on Swarm (public gateway), referenced from Arkiv; see `/arkiv/swarm.md`
