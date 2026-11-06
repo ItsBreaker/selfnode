@@ -442,3 +442,21 @@ update when ESLint ships a patched range.
   NSIS `.exe`, `publish: null`. The node binaries aren't bundled; they're
   downloaded and verified at runtime. The packaged app was re-tested (Nox, Helios,
   node pre-flight). electron-winstaller's install script (Squirrel, unused) is denied.
+- **Windows shutdown (researched; no new dependencies).** Node's `child.kill()`
+  on Windows always terminates the process; delivering Ctrl+C to a console
+  process needs native code (`GenerateConsoleCtrlEvent` with a shared console).
+  - Nethermind's JSON-RPC `admin` namespace has no shutdown method. It does have
+    `admin_pauseBlockProcessing`, documented as "intended for testing and
+    diagnostics". It stops block processing but doesn't pause the initial snap
+    sync's writes. On Windows only, Selfnode enables the `Admin` module (RPC is
+    still bound to 127.0.0.1), calls it, and waits for
+    `admin_isBlockProcessingPaused` before stopping.
+  - Nimbus has no shutdown endpoint. `beacon_chain/process_state.nim` stops
+    cleanly only on SIGINT (SIGTERM isn't generated on Windows), so it's
+    force-killed.
+  - So the Windows node manager is labelled **experimental** in the UI and README:
+    a stop may require a resync.
+- **Stricter "synced" for the auto-switch:** besides both clients reporting
+  done, with peers and a head, the execution head must be under 2 minutes old
+  (`isSynced`, tested). The switch to local reads happens once, so a later
+  manual switch back sticks.

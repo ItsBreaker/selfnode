@@ -38,7 +38,8 @@ function DownloadPage() {
           <div className="flex flex-col gap-3 text-small">
             <p>
               Builds for macOS (Apple Silicon and Intel; the node manager needs Apple Silicon) and
-              Windows x64 are produced by this repository's CI. There's no signed release yet.
+              Windows x64. They're unsigned. The node manager is Sepolia-only, and experimental on
+              Windows (stopping force-kills the clients, which may require a resync).
             </p>
             <p>
               <a
@@ -179,6 +180,14 @@ function NodeManager() {
         {info?.unsupported && (
           <Callout tone="warning" title="Node manager not supported on this computer">
             {info.unsupported}
+          </Callout>
+        )}
+        {pf?.platform.startsWith("win32") && (
+          <Callout tone="warning" title="Experimental on Windows">
+            Windows gives Selfnode no way to send these clients a clean shutdown signal, so stopping
+            the node force-kills them. Selfnode pauses Nethermind's block processing first, but
+            Nimbus, or a first sync that's still in progress, can be interrupted mid-write. If a
+            client won't start afterwards, the node may need to resync.
           </Callout>
         )}
         {error && (

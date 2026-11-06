@@ -10,18 +10,18 @@ MIT licensed.
 
 ## What works today
 
-| Feature                                                                                                                                                        | Status                         |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| **Private mode** (default): all reads and every broadcast go through [Anon-RPC](https://github.com/ethereum/anon-rpc) (Nox by default; Nym and Tor selectable) | ✅ live, tested in-browser     |
-| **Verified mode**: [Helios](https://github.com/a16z/helios) light client checks answers against consensus (mainnet; Sepolia needs your own consensus endpoint) | ✅ live                        |
-| **My node mode**: reads from your own node; broadcasts still go through Anon-RPC                                                                               | ✅ live                        |
-| **Wallet**: create/import, scrypt + AES-GCM vault, auto-lock, Sepolia sends with a plain-English pre-sign preview                                              | ✅ live, end-to-end on Sepolia |
-| **Explorer**: address, transaction and block views, ENS search, ⌘K, labels and function names from **Arkiv**                                                   | ✅ live                        |
-| **Swap**: Uniswap v4 on Sepolia, quoted on-chain, Universal Router + Permit2                                                                                   | ✅ live, end-to-end on Sepolia |
-| **Arkiv mirror**: open-licensed labels, scam list, tokens and function names, re-runnable importer                                                             | ✅ 3,349 entities on Rabdi     |
-| **Privacy report** page: what every third party learns, per mode                                                                                               | ✅ live                        |
-| Desktop app with a node manager (Electron)                                                                                                                     | ⏳ not built yet               |
-| Swarm snapshots of the mirrored datasets                                                                                                                       | ⏳ not built yet               |
+| Feature                                                                                                                                                        | Status                                                            |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| **Private mode** (default): all reads and every broadcast go through [Anon-RPC](https://github.com/ethereum/anon-rpc) (Nox by default; Nym and Tor selectable) | ✅ live, tested in-browser                                        |
+| **Verified mode**: [Helios](https://github.com/a16z/helios) light client checks answers against consensus (mainnet; Sepolia needs your own consensus endpoint) | ✅ live                                                           |
+| **My node mode**: reads from your own node; broadcasts still go through Anon-RPC                                                                               | ✅ live                                                           |
+| **Wallet**: create/import, scrypt + AES-GCM vault, auto-lock, Sepolia sends with a plain-English pre-sign preview                                              | ✅ live, end-to-end on Sepolia                                    |
+| **Explorer**: address, transaction and block views, ENS search, ⌘K, labels and function names from **Arkiv**                                                   | ✅ live                                                           |
+| **Swap**: Uniswap v4 on Sepolia, quoted on-chain, Universal Router + Permit2                                                                                   | ✅ live, end-to-end on Sepolia                                    |
+| **Arkiv mirror**: open-licensed labels, scam list, tokens and function names, re-runnable importer                                                             | ✅ 3,349 entities on Rabdi                                        |
+| **Privacy report** page: what every third party learns, per mode                                                                                               | ✅ live                                                           |
+| **Desktop app** (Electron, `app://`): same UI plus a node manager that downloads, verifies and runs a pruned Sepolia node (Nethermind + Nimbus)                | ✅ macOS Apple Silicon; Windows x64 experimental; unsigned builds |
+| Swarm snapshots of the mirrored datasets                                                                                                                       | ⏳ not built yet                                                  |
 
 Signing is **Sepolia-only** in this build. Mainnet is read-only, and that's
 enforced in [`signer.ts`](packages/core/src/wallet/signer.ts) with tests.
@@ -65,6 +65,11 @@ Ethereum's client diversity.
   through Anon-RPC.
 - Intel Macs can run the app but not the node manager: neither Nimbus nor
   Lighthouse publishes an Intel macOS build.
+- **Experimental on Windows.** Windows gives Selfnode no way (without native
+  code) to send these console clients a clean shutdown signal, so stopping
+  force-kills them. Selfnode first pauses Nethermind's block processing
+  (`admin_pauseBlockProcessing`), but Nimbus, or an unfinished first sync, can be
+  cut off mid-write and may need a resync.
 
 Unsigned builds (universal `.dmg`, NSIS `.exe`) with `SHA256SUMS.txt` come from
 [the desktop workflow](.github/workflows/desktop.yml). Run locally with
