@@ -41,7 +41,7 @@ Built from section 3 of the build brief. Tick as completed.
 ## Demo and submission
 
 - [x] `docs/DEMO_SCRIPT.md` (3-minute path)
-- [ ] **Jayden:** record the demo video (add its timestamp to `/arkiv/swarm.md` if the Swarm bonus is done)
+- [ ] **Jayden:** record the demo video (`docs/DEMO_SCRIPT.md`; add its timestamp to `/arkiv/swarm.md` if the Swarm bonus is done)
 - [x] Deployed: https://selfnode.jhfe.workers.dev/ (Cloudflare Worker, strict security headers, verified live)
 
 ## Desktop
@@ -50,3 +50,11 @@ Built from section 3 of the build brief. Tick as completed.
 - [x] Node manager: pre-flight, verified downloads, pruned Sepolia (Nethermind + Nimbus), sync progress, auto-switch, pause on battery and low disk, clean shutdown, logs
 - [x] CI builds for macOS (universal dmg) and Windows (NSIS) with SHA-256 checksums
 - [ ] **Jayden:** review `apps/desktop/node-manifest.json`, then set `maintainerReviewed` to true
+- [x] Desktop pre-release published: https://github.com/ItsBreaker/selfnode/releases/tag/v0.1.0-hackathon (unsigned .dmg/.exe + SHA256SUMS.txt), linked from the web Download page and the README
+- [x] Windows node manager labelled experimental (UI, README, release notes)
+
+## Final checks (2026-11-06)
+
+- [x] gitleaks over the full git history (`gitleaks git --log-opts=--all`): 84 commits, no leaks. Working-tree hits are only the gitignored `.env` and local mirror reports, which hold public commit hashes; no secrets found in them.
+- [x] README re-checked: feature table, test count, architecture, and all 14 Uniswap line anchors verified against the source
+- [ ] Swarm bonus: skipped unless a postage batch becomes available

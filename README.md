@@ -154,7 +154,7 @@ Every exception, and why:
 - MIT licence. Pinned exact dependency versions with a committed lockfile.
 - Dependency install scripts are blocked except `esbuild`, and pnpm's
   minimum-release-age policy applies with no exceptions.
-- CI runs typecheck, lint, format, 111 tests and gitleaks on every push.
+- CI runs typecheck, lint, format, 122 tests and gitleaks on every push, plus macOS and Windows desktop builds.
 - Builds with `pnpm install && pnpm --filter @selfnode/web build`.
 
 **Privacy**
@@ -285,6 +285,7 @@ packages/core/       framework-agnostic TypeScript
   src/labels/        Arkiv schemas, mirror reader, calldata decoding
   src/swap/          Uniswap v4 encoding, quoting, Permit2, swap checks
 apps/web/            React + Vite UI
+apps/desktop/        Electron shell (app://), node manager, node-manifest.json
 scripts/             Arkiv mirror, key generation, Sepolia funding helper, Phase 0 spikes
 arkiv/               Arkiv prize docs, licence texts, query example
 docs/                DECISIONS.md, SUBMISSION_CHECKLIST.md, DEMO_SCRIPT.md
