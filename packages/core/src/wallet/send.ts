@@ -102,6 +102,41 @@ const fmt = (v: bigint, d: number) => {
   return `${f.whole}${f.fraction ? `.${f.fraction}` : ""}`;
 };
 
+/** Gas limit with the 20% buffer every send uses. */
+export const gasWithBuffer = (estimate: bigint): bigint => (estimate * 120n) / 100n;
+
+/** Tiny Sepolia base fees can make the suggested tip exceed the cap; keep tip ≤ cap. */
+export function effectiveMaxFee(fees: { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint }) {
+  return fees.maxFeePerGas > fees.maxPriorityFeePerGas
+    ? fees.maxFeePerGas
+    : fees.maxPriorityFeePerGas * 2n;
+}
+
+/**
+ * Fee per gas reserved by "Max": the larger of double the current max fee or
+ * the fee plus 1 gwei, so the amount still passes review if fees move before
+ * then. (Sepolia fees are a few wei, so a percentage alone isn't enough.)
+ */
+export const MAX_SEND_FEE_FLOOR = 1_000_000_000n;
+export function maxSendReserveFee(maxFeePerGas: bigint): bigint {
+  const doubled = maxFeePerGas * 2n;
+  const floored = maxFeePerGas + MAX_SEND_FEE_FLOOR;
+  return doubled > floored ? doubled : floored;
+}
+
+/**
+ * The most ETH that can be sent while leaving enough for the network fee:
+ * balance − buffered gas × reserve fee. Zero if the fee alone doesn't fit.
+ */
+export function maxNativeAmount(
+  balance: bigint,
+  gasEstimate: bigint,
+  maxFeePerGas: bigint,
+): bigint {
+  const reserve = gasWithBuffer(gasEstimate) * maxSendReserveFee(maxFeePerGas);
+  return balance > reserve ? balance - reserve : 0n;
+}
+
 export function txFields(req: SendRequest): { to: Address; value: bigint; data?: Hex } {
   if (req.asset.kind === "native") return { to: req.to, value: req.amount };
   return {
@@ -124,7 +159,7 @@ export function assessSend(
   const w = (level: WarningLevel, message: string, blocking = false) =>
     warnings.push({ level, message, blocking });
   const { symbol, decimals } = req.asset;
-  const gasLimit = facts.gasEstimate !== null ? (facts.gasEstimate * 120n) / 100n : 0n;
+  const gasLimit = facts.gasEstimate !== null ? gasWithBuffer(facts.gasEstimate) : 0n;
   const maxCost = gasLimit * facts.maxFeePerGas;
   const nativeNeeded = maxCost + (req.asset.kind === "native" ? req.amount : 0n);
 
@@ -249,10 +284,8 @@ export async function gatherSendFacts(
   } catch (e) {
     simulation = { ok: false, reason: revertReason(e) };
   }
-  // Tiny Sepolia base fees can make the suggested tip exceed the cap; keep tip ≤ cap.
   const maxPriorityFeePerGas = fees.maxPriorityFeePerGas;
-  const maxFeePerGas =
-    fees.maxFeePerGas > maxPriorityFeePerGas ? fees.maxFeePerGas : maxPriorityFeePerGas * 2n;
+  const maxFeePerGas = effectiveMaxFee(fees);
   return {
     nonce,
     maxFeePerGas,

@@ -7,8 +7,10 @@ import {
   assessSend,
   builtinTokens,
   chains,
+  effectiveMaxFee,
   formatAmount,
   gatherSendFacts,
+  maxNativeAmount,
   signTransaction,
   type Asset,
   type SendPreview,
@@ -17,6 +19,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
+  formatEther,
   getAddress,
   isAddress,
   parseUnits,
@@ -76,6 +79,10 @@ export function SendFlow() {
   const [amount, setAmount] = useState("");
   const [ack, setAck] = useState(false);
   const [phase, setPhase] = useState<Phase>({ k: "form" });
+  const [maxState, setMaxState] = useState<{ busy: boolean; note: string | null }>({
+    busy: false,
+    note: null,
+  });
   const asset = assets[assetIdx] ?? ETH;
 
   if (!chain.testnet) {
@@ -103,6 +110,38 @@ export function SendFlow() {
       parsed = null;
     }
   }
+
+  /** Max for ETH: balance minus the network fee (estimated through the active route). */
+  const fillMax = async () => {
+    if (!address) return;
+    setMaxState({ busy: true, note: null });
+    try {
+      const [balance, fees] = await Promise.all([
+        client.getBalance({ address }),
+        client.estimateFeesPerGas(),
+      ]);
+      const target = to && isAddress(to) ? getAddress(to) : null;
+      // Estimate against the recipient if there is one; otherwise assume a classic 21,000-gas transfer.
+      const gas = target
+        ? await client.estimateGas({ account: address, to: target, value: 0n }).catch(() => 21_000n)
+        : 21_000n;
+      const max = maxNativeAmount(balance, gas, effectiveMaxFee(fees));
+      if (max === 0n) {
+        setMaxState({ busy: false, note: "Your balance doesn't cover the network fee." });
+        return;
+      }
+      setAmount(formatEther(max));
+      setMaxState({
+        busy: false,
+        note: `Keeps ${fmt(balance - max, 18, 8)} ETH back for the network fee; what the fee doesn't use stays in your wallet.`,
+      });
+    } catch {
+      setMaxState({
+        busy: false,
+        note: "Couldn't get your balance and fees through the active route. Try again.",
+      });
+    }
+  };
 
   const review = async () => {
     if (!address || parsed === null || toError) return;
@@ -276,7 +315,10 @@ export function SendFlow() {
               type="button"
               role="radio"
               aria-checked={i === assetIdx}
-              onClick={() => setAssetIdx(i)}
+              onClick={() => {
+                setAssetIdx(i);
+                setMaxState({ busy: false, note: null });
+              }}
               className={cx(
                 "h-11 rounded-md border px-4 text-small font-medium sm:h-9",
                 i === assetIdx
@@ -305,9 +347,28 @@ export function SendFlow() {
         inputMode="decimal"
         placeholder="0.0"
         value={amount}
-        onChange={(e) => setAmount(e.target.value)}
+        onChange={(e) => {
+          setAmount(e.target.value);
+          setMaxState({ busy: false, note: null });
+        }}
         error={amountError}
-        trailing={<span className="text-small text-muted">{asset.symbol}</span>}
+        hint={maxState.note ?? undefined}
+        trailing={
+          <span className="flex items-center gap-2">
+            <span className="text-small text-muted">{asset.symbol}</span>
+            {asset.kind === "native" && (
+              <button
+                type="button"
+                onClick={() => void fillMax()}
+                disabled={maxState.busy}
+                aria-label="Send the maximum, leaving enough for the network fee"
+                className="h-9 min-w-11 rounded-sm border border-border px-2 text-small font-medium text-text hover:border-border-strong disabled:text-muted"
+              >
+                {maxState.busy ? "…" : "Max"}
+              </button>
+            )}
+          </span>
+        }
       />
       <div>
         <Button

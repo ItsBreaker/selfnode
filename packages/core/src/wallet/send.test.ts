@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { parseEther, zeroAddress, type Address } from "viem";
-import { assessSend, type SendFacts, type SendRequest } from "./send.js";
+import {
+  assessSend,
+  effectiveMaxFee,
+  maxNativeAmount,
+  type SendFacts,
+  type SendRequest,
+} from "./send.js";
 
 // Fixtures: illustrative addresses and balances for unit tests only.
 const FROM: Address = "0x1111111111111111111111111111111111111111";
@@ -116,5 +122,57 @@ describe("assessSend", () => {
     await expect(gatherSendFacts({} as never, { ...eth(1n), chain: "mainnet" })).rejects.toThrow(
       /disabled/,
     );
+  });
+});
+
+describe("maxNativeAmount (the Max button)", () => {
+  const gwei = 1_000_000_000n;
+  it("reserves the buffered gas at double the fee on mainnet-like fees", () => {
+    // 21000 gas → 25200 with the 20% buffer; 2 × 20 gwei beats 20 gwei + 1 gwei.
+    expect(maxNativeAmount(parseEther("1"), 21_000n, 20n * gwei)).toBe(
+      parseEther("1") - 25_200n * 40n * gwei,
+    );
+  });
+  it("reserves fee + 1 gwei when fees are tiny (Sepolia)", () => {
+    expect(maxNativeAmount(parseEther("0.001"), 21_000n, 15n)).toBe(
+      parseEther("0.001") - 25_200n * (15n + gwei),
+    );
+  });
+  it("is zero when the balance doesn't cover the fee", () => {
+    expect(maxNativeAmount(1000n, 21_000n, 2n * gwei)).toBe(0n);
+    expect(maxNativeAmount(0n, 21_000n, 2n * gwei)).toBe(0n);
+  });
+  it("still passes review after fees move", () => {
+    for (const [fee, reviewFees] of [
+      [15n, [15n, 40n, 500_000_000n]], // Sepolia: a few wei, jumping around
+      [20n * gwei, [20n * gwei, 39n * gwei]], // mainnet-like: up to ~double
+    ] as const) {
+      const balance = parseEther("0.01");
+      const amount = maxNativeAmount(balance, 21_000n, fee);
+      for (const reviewFee of reviewFees) {
+        const { preview, tx } = assessSend(
+          eth(amount),
+          facts({ nativeBalance: balance, gasEstimate: 21_000n, maxFeePerGas: reviewFee }),
+        );
+        expect(preview.warnings.filter((w) => w.blocking)).toEqual([]);
+        expect(tx?.value).toBe(amount);
+      }
+    }
+  });
+  it("is caught by review, not sent, if fees rise past the reserve", () => {
+    const balance = parseEther("0.01");
+    const amount = maxNativeAmount(balance, 21_000n, 20n * gwei);
+    const { preview } = assessSend(
+      eth(amount),
+      facts({ nativeBalance: balance, gasEstimate: 21_000n, maxFeePerGas: 41n * gwei }),
+    );
+    expect(preview.canSend).toBe(false);
+  });
+});
+
+describe("effectiveMaxFee", () => {
+  it("keeps the cap above the tip", () => {
+    expect(effectiveMaxFee({ maxFeePerGas: 10n, maxPriorityFeePerGas: 3n })).toBe(10n);
+    expect(effectiveMaxFee({ maxFeePerGas: 3n, maxPriorityFeePerGas: 3n })).toBe(6n);
   });
 });
