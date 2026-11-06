@@ -28,7 +28,9 @@ Built from section 3 of the build brief. Tick as completed.
 - [x] Dataset snapshots on Swarm, referenced by `snapshot` entities (`swarmRef`): tokens, labels, sigs via the bzz.limo public gateway
 - [x] Unencrypted references only
 - [x] `/arkiv/swarm.md`: Swarm vs Arkiv, `swarmRef`, entity keys + references with links, batch (gateway's own, ID and lifetime not exposed), files, upload and read steps with real output, `--from-swarm` dry run, friction
-- [ ] **Jayden:** demo video timestamp in `/arkiv/swarm.md` (placeholder)
+- [x] `--from-swarm` rebuild (hash-verified, gateway fallback) and a keyless read example (`arkiv/examples/swarm-read.ts`)
+- [x] App: opt-in "Load labels from the Swarm archive" (Settings), with an IP warning, on the Privacy page and in the README exceptions table
+- [ ] **Jayden:** demo video timestamp in `/arkiv/swarm.md` (placeholder under "## Demo video")
 - [ ] Postage batch details, if the Swarm team shares them
 
 ## Ethereum Foundation — Best Use of Anon-RPC
@@ -45,6 +47,8 @@ Built from section 3 of the build brief. Tick as completed.
 - [x] `docs/DEMO_SCRIPT.md` (3-minute path)
 - [ ] **Jayden:** record the demo video (`docs/DEMO_SCRIPT.md`; add its timestamp to `/arkiv/swarm.md` if the Swarm bonus is done)
 - [x] Deployed: https://selfnode.jhfe.workers.dev/ (Cloudflare Worker, strict security headers, verified live)
+- [x] Logo: `docs/brand/selfnode-logo-source.png` (the ETHGlobal logo), a matching SVG redraw (`selfnode-logo.svg`) and `selfnode-logo-512.png`; favicon, app icon and header mark live on the web app
+- [ ] **Jayden:** ETHGlobal "Upload images" step (logo + screenshots from `docs/screenshots/`)
 
 ## Desktop
 
@@ -58,6 +62,7 @@ Built from section 3 of the build brief. Tick as completed.
 
 ## Final checks (2026-11-06)
 
-- [x] gitleaks over the full git history (`gitleaks git --log-opts=--all`): 84 commits, no leaks. Working-tree hits are only the gitignored `.env` and local mirror reports, which hold public commit hashes; no secrets found in them.
-- [x] README re-checked: feature table, test count, architecture, and all 14 Uniswap line anchors verified against the source
+- [x] gitleaks over the full git history (`gitleaks git --log-opts=--all`): 110 commits, no leaks (re-run 20:51 IST). Earlier working-tree hits were only the gitignored `.env` and local mirror reports, which hold public commit hashes.
+- [x] README re-checked (20:52 IST): feature table (incl. Swarm and the archive), entity counts, exceptions table, test count (152), architecture, and all 14 Uniswap line anchors verified against the source
+- [x] Traffic share: README's 98.0% (97 of 99, production build) is the latest measurement; the earlier 97.9% (95 of 97) is marked superseded in DECISIONS
 - [x] Swarm bonus: snapshots on Swarm (public gateway), referenced from Arkiv; see `/arkiv/swarm.md`

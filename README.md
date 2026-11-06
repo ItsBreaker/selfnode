@@ -38,10 +38,10 @@ desktop and mobile) are in [`docs/screenshots/`](docs/screenshots/).
 | **Wallet**: create/import, scrypt + AES-GCM vault, auto-lock, Sepolia sends with a plain-English pre-sign preview, Max for ETH, password-gated phrase reveal   | ✅ live, end-to-end on Sepolia                                                           |
 | **Explorer**: address, transaction and block views, ENS search, ⌘K, labels and function names from **Arkiv**                                                   | ✅ live                                                                                  |
 | **Swap**: Uniswap v4 on Sepolia, quoted on-chain, Universal Router + Permit2                                                                                   | ✅ live, end-to-end on Sepolia                                                           |
-| **Arkiv mirror**: open-licensed labels, scam list, tokens and function names, re-runnable importer                                                             | ✅ 3,349 entities on Rabdi                                                               |
+| **Arkiv mirror**: open-licensed labels, scam list, tokens and function names, re-runnable importer                                                             | ✅ 3,349 entities on Rabdi (+3 snapshot pointers)                                        |
 | **Privacy report** page: what every third party learns, per mode                                                                                               | ✅ live                                                                                  |
 | **Desktop app** (Electron, `app://`): same UI plus a node manager that downloads, verifies and runs a pruned Sepolia node (Nethermind + Nimbus)                | ✅ macOS Apple Silicon and Windows x64 (graceful shutdown tested in CI); unsigned builds |
-| **Swarm snapshots** of the mirrored datasets, referenced from Arkiv (`swarmRef` + SHA-256), and `--from-swarm` rebuild ([swarm.md](arkiv/swarm.md))            | ✅ 3 snapshots via the bzz.limo public gateway                                           |
+| **Swarm snapshots** of the mirrored datasets, referenced from Arkiv (`swarmRef` + SHA-256), and `--from-swarm` rebuild ([swarm.md](arkiv/swarm.md))            | ✅ 3 snapshots via the bzz.limo public gateway; opt-in in-app archive                    |
 
 Signing is **Sepolia-only** in this build. Mainnet is read-only, and that's
 enforced in [`signer.ts`](packages/core/src/wallet/signer.ts) with tests.
@@ -179,7 +179,7 @@ Every exception, and why:
 - MIT licence. Pinned exact dependency versions with a committed lockfile.
 - Dependency install scripts are blocked except `esbuild`, and pnpm's
   minimum-release-age policy applies with no exceptions.
-- CI runs typecheck, lint, format, 132 tests and gitleaks on every push, plus macOS and Windows desktop builds.
+- CI runs typecheck, lint, format, 152 tests and gitleaks on every push, plus macOS and Windows desktop builds.
 - Builds with `pnpm install && pnpm --filter @selfnode/web build`.
 
 **Privacy**
@@ -192,6 +192,8 @@ Every exception, and why:
   - The anonymity network's worker sees your requests.
   - The bootstrap read is direct.
   - Verified mode is direct to its upstreams.
+  - The Swarm archive download, if you choose to load it, is direct to the
+    gateway.
 - No analytics, trackers, error reporting, or remote fonts or scripts. Fonts are
   self-hosted from npm.
 
@@ -250,7 +252,8 @@ about flagged recipients before you sign, and decode calldata.
   [`0xA05A5c06d69dECa38FdB779957d4E7B3aC2B8c39`](https://rabdi.explorer.arkiv.network/address/0xA05A5c06d69dECa38FdB779957d4E7B3aC2B8c39)
 - **Contents:** 2,105 tokens, 796 labels (144 contracts and 652 flagged
   addresses), 444 function signatures (covering 68.4% of calls in a 300-block
-  mainnet sample), and 4 licence-notice entities.
+  mainnet sample), and 4 licence-notice entities: 3,349 in all. Plus 3
+  `selfnode-snapshot` entities pointing at the Swarm snapshots.
 - **Importer:** [`scripts/arkiv-mirror/`](scripts/arkiv-mirror/). It's
   idempotent: it creates, patches, extends near expiry, or skips by a
   deterministic key. It guards a tGLM reserve. Run it with
@@ -258,7 +261,9 @@ about flagged recipients before you sign, and decode calldata.
 - **Swarm snapshots:** each dataset is also one unencrypted JSON file on Swarm,
   pointed to by a `selfnode-snapshot` entity (`swarmRef`, `sha256`). `--snapshot`
   uploads them; `--from-swarm` rebuilds Arkiv from them after verifying the
-  hash. Details, references and friction: [swarm.md](arkiv/swarm.md).
+  hash. In the app, Settings → "Load labels from the Swarm archive" (opt-in;
+  the gateway sees your IP) loads them in one go, checked against Arkiv.
+  Details, references and friction: [swarm.md](arkiv/swarm.md).
 - **Docs:** [schema](arkiv/schema.md) · [data quality](arkiv/data-quality.md) ·
   [reach](arkiv/reach.md) · [why Arkiv](arkiv/why-arkiv.md) ·
   [friction](arkiv/friction.md) · [Swarm](arkiv/swarm.md)
@@ -311,13 +316,13 @@ packages/core/       framework-agnostic TypeScript
   src/config/        chains, RPCs, Anon-RPC specifiers, Uniswap and Arkiv addresses (each with its source)
   src/transport/     mode router, Anon-RPC worker pool, Helios, traffic and health tracking
   src/wallet/        keys, vault, session, signer (testnet guard), send preview
-  src/labels/        Arkiv schemas, mirror reader, calldata decoding
+  src/labels/        Arkiv schemas, mirror reader, Swarm archive (opt-in), calldata decoding
   src/swap/          Uniswap v4 encoding, quoting, Permit2, swap checks
 apps/web/            React + Vite UI
 apps/desktop/        Electron shell (app://), node manager, node-manifest.json
-scripts/             Arkiv mirror, key generation, Sepolia funding helper, Phase 0 spikes
-arkiv/               Arkiv prize docs, licence texts, query example
-docs/                DECISIONS.md, SUBMISSION_CHECKLIST.md, DEMO_SCRIPT.md
+scripts/             Arkiv mirror (+ Swarm snapshots, --from-swarm), key generation, Sepolia funding helper, Phase 0 spikes
+arkiv/               Arkiv and Swarm prize docs, licence texts, query and Swarm read examples
+docs/                DECISIONS.md, SUBMISSION_CHECKLIST.md, DEMO_SCRIPT.md, brand/ (logo), screenshots/
 ```
 
 ## AI use

@@ -331,7 +331,8 @@ update when ESLint ships a patched range.
 
 ## Phase 6: submission docs
 
-- **Traffic-share number for the README:** 97.9% (95 of 97 calls), measured in a
+- **Traffic-share number for the README:** 97.9% (95 of 97 calls; superseded by
+  98.0%, 97 of 99, re-measured on the production build below), measured in a
   scripted end-to-end browser session: create a wallet, receive funds, swap both
   directions. The remaining 2 are the bootstrap reads; 0 direct. Shorter sessions
   show a lower share, because the 2 bootstrap reads are a fixed cost per session
