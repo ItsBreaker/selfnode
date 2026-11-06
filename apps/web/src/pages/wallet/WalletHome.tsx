@@ -12,6 +12,7 @@ import { Segmented } from "../../ui/Segmented";
 import { BalancesPanel } from "./BalancesPanel";
 import { RevealSecret } from "./RevealSecret";
 import { SendFlow } from "./SendFlow";
+import { SwapButton } from "./SwapDialog";
 
 function ActivityPanel() {
   const q = useQuery({ queryKey: ["activity"], queryFn: activityStore.list });
@@ -126,7 +127,7 @@ export function WalletHome() {
         <ActivityPanel />
       </div>
       <div className="flex flex-col gap-5">
-        <Panel title="Send">
+        <Panel title="Send" actions={<SwapButton />}>
           <SendFlow />
         </Panel>
         <SecurityPanel />
