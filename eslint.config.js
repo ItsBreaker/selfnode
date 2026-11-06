@@ -13,7 +13,29 @@ export default tseslint.config(
     },
   },
   {
-    files: ["scripts/**", "**/*.spike.ts", "**/spikes/**", "arkiv/examples/**"],
+    files: [
+      "scripts/**",
+      "**/*.spike.ts",
+      "**/spikes/**",
+      "arkiv/examples/**",
+      "apps/desktop/scripts/**",
+    ],
     rules: { "no-console": "off" },
+  },
+  {
+    // Plain Node scripts (.mjs): declare the Node globals they use.
+    files: ["**/*.mjs"],
+    languageOptions: {
+      globals: {
+        console: "readonly",
+        process: "readonly",
+        Buffer: "readonly",
+        URL: "readonly",
+        crypto: "readonly",
+        fetch: "readonly",
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
+      },
+    },
   },
 );
