@@ -52,6 +52,10 @@ Ethereum's client diversity.
   The archive's SHA-256 must match, and Nimbus's binary must also match the
   SHA-512 in its release notes. The installed files are re-hashed before every
   start. Nothing updates automatically.
+  The manifest was reviewed by the maintainer. **Planned improvement:** Nethermind
+  also publishes GPG signatures (`.asc`) for each build. Verifying them, in
+  addition to the pinned checksums, isn't done yet. Nimbus doesn't publish
+  signatures, which is why we also check its SHA-512s.
 - **Smallest footprint.** Nethermind skips historical bodies and receipts and
   prunes history and state; Nimbus checkpoint-syncs without backfill and prunes
   history. Each flag is cited in

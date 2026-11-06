@@ -80,6 +80,17 @@ export const PARTIES: Party[] = [
     },
   },
   {
+    name: "Checkpoint sync provider",
+    who: "A beacon node that serves a recent finalized state (ethpandaops by default; changeable in the desktop app's Node settings).",
+    status: "live",
+    learns: {
+      private: "Not used.",
+      verified: "Not used.",
+      mynode:
+        "Desktop node manager only, once, on the first sync: your IP address and that you're starting a Sepolia beacon node. Nothing about your addresses.",
+    },
+  },
+  {
     name: "Arkiv",
     who: "The Arkiv testnet RPC, for address labels and function names.",
     status: "live",
@@ -151,6 +162,11 @@ export const TRUST_POINTS: { title: string; detail: string }[] = [
     title: "Helios's checkpoint",
     detail:
       "Verified mode starts from the latest finalized checkpoint reported by its consensus endpoint. A dishonest endpoint could start Helios from a wrong checkpoint. Use an endpoint you trust, ideally your own node's.",
+  },
+  {
+    title: "The checkpoint sync provider",
+    detail:
+      "The desktop node manager starts Nimbus from a recent finalized state served by a checkpoint provider, instead of syncing from genesis. A dishonest provider could start your node on the wrong chain. Use a provider you trust, or compare the checkpoint against another source; you can change it in the Node settings.",
   },
   {
     title: "Private mode isn't verified",

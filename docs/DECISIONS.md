@@ -460,3 +460,28 @@ update when ESLint ships a patched range.
   done, with peers and a head, the execution head must be under 2 minutes old
   (`isSynced`, tested). The switch to local reads happens once, so a later
   manual switch back sticks.
+- **Manifest reviewed by the maintainer (2026-11-06):** the URLs are official, all
+  four SHA-256s match the GitHub release digests, and the Nimbus SHA-512s match
+  its release notes. `maintainerReviewed` is set to true.
+- **Where the Sepolia disk figures come from, and why they're conservative.**
+  - **Execution, 212 GB:** Nethermind's published per-directory database sizes
+    for a Sepolia node on 2.2.0 (`flat` 181 GB + `headers` 5.1 GB + `code` 24 GB +
+    `blobTransactions` 1.3 GB, rounded up). Historical `blocks` and `receipts`
+    (548 + 132 GB) are excluded because Selfnode doesn't download them.
+  - **Consensus, 200 GB:** Nimbus's hardware guide, which is a general figure
+    (written with mainnet in mind). A pruned Sepolia beacon database is far
+    smaller, so this overstates it.
+  - **Growth, 30 GB/week for 4 weeks:** Nethermind's state-growth figure is for
+    mainnet; Sepolia's state grows more slowly.
+
+  We deliberately use the larger published numbers: refusing to start on a drive
+  that might fit is better than filling someone's disk. The low-disk watchdog
+  (50 GB or 10%) is the second safety net.
+
+- **Checkpoint sync is a trust point.** It's listed on the Privacy page as a third
+  party (it sees your IP once) and as something you trust (it chooses the state
+  Nimbus starts from).
+- **GPG signatures:** Nethermind publishes `.asc` signatures for each build.
+  Verifying them is a planned improvement (there's no gpg on the build machine,
+  and we'd need to pin Nethermind's signing key). Nimbus publishes none, hence the
+  extra SHA-512 check.

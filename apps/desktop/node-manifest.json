@@ -1,7 +1,7 @@
 {
-  "$comment": "Node binaries the desktop app may download, and the disk figures its pre-flight check uses. To be reviewed by the maintainer before release. A binary is executed only if its archive matches sha256 (and, for Nimbus, the extracted binary also matches the sha512 Nimbus publishes). Nothing here updates automatically.",
+  "$comment": "Node binaries the desktop app may download, and the disk figures its pre-flight check uses. Reviewed by the maintainer on 2026-11-06 (URLs official; SHA-256s match the GitHub release digests; Nimbus SHA-512s match the release notes). A binary is executed only if its archive matches sha256 (and, for Nimbus, the extracted binary also matches the sha512 Nimbus publishes). Nothing here updates automatically.",
   "checkedAt": "2026-11-06",
-  "maintainerReviewed": false,
+  "maintainerReviewed": true,
   "network": "sepolia",
   "clients": {
     "nethermind": {
