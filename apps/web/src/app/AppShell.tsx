@@ -10,6 +10,7 @@ import { NodeAutoSwitch } from "./NodeAutoSwitch";
 import { WorkerCodeChangeDialog } from "./WorkerCodeChangeDialog";
 import { FailoverNotice } from "./FailoverNotice";
 import { LabelsStatus } from "./LabelsStatus";
+import { ActiveWalletBar } from "./ActiveWalletBar";
 
 export function AppShell() {
   const { pref, setPref } = useTheme();
@@ -28,6 +29,7 @@ export function AppShell() {
         themeToggle={toggle}
         mobileNav={<MobileNav themeToggle={toggle} />}
       />
+      <ActiveWalletBar />
       <LabelsStatus />
       <main id="main" className="flex-1">
         <Outlet />

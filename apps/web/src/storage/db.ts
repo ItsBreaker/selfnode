@@ -20,7 +20,8 @@ export interface ActivityItem {
 }
 
 interface SelfnodeDB extends DBSchema {
-  vault: { key: "primary"; value: VaultBlob };
+  /** Encrypted vaults by id ("primary" for the first one, so existing data is untouched). */
+  vault: { key: string; value: VaultBlob };
   activity: { key: Hex; value: ActivityItem; indexes: { byCreated: number } };
   /** Arkiv mirror lookups (labels, signatures), including "not found", with fetch time. */
   labels: { key: string; value: { value: unknown; at: number } };
@@ -51,9 +52,12 @@ interface WrappedVault {
 const isWrapped = (v: unknown): v is WrappedVault =>
   typeof v === "object" && v !== null && "wrapped" in v;
 
+/** The original single vault's key; new vaults get their own ids. */
+export const PRIMARY_VAULT = "primary";
+
 export const vaultStore = {
-  get: async (): Promise<VaultBlob | undefined> => {
-    const v = (await (await db()).get("vault", "primary")) as VaultBlob | WrappedVault | undefined;
+  get: async (id: string = PRIMARY_VAULT): Promise<VaultBlob | undefined> => {
+    const v = (await (await db()).get("vault", id)) as VaultBlob | WrappedVault | undefined;
     if (!v) return undefined;
     if (!isWrapped(v)) return v;
     if (!desktop)
@@ -62,14 +66,16 @@ export const vaultStore = {
       );
     return JSON.parse(await desktop.vault.unwrap(v.wrapped)) as VaultBlob;
   },
-  put: async (blob: VaultBlob) => {
+  put: async (blob: VaultBlob, id: string = PRIMARY_VAULT) => {
     const value =
       desktop && (await desktop.vault.available())
         ? { wrapped: await desktop.vault.wrap(JSON.stringify(blob)) }
         : blob;
-    await (await db()).put("vault", value as VaultBlob, "primary");
+    await (await db()).put("vault", value as VaultBlob, id);
   },
-  clear: async () => void (await db()).delete("vault", "primary"),
+  remove: async (id: string) => void (await db()).delete("vault", id),
+  ids: async (): Promise<string[]> => (await (await db()).getAllKeys("vault")).map(String),
+  clear: async () => void (await db()).clear("vault"),
 };
 
 export const activityStore = {

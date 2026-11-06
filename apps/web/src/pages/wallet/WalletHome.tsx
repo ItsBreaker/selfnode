@@ -59,7 +59,8 @@ function ActivityPanel() {
 }
 
 function SecurityPanel() {
-  const { lock, remove, autoLockMinutes, setAutoLockMinutes, kind } = useWallet();
+  const { lock, remove, autoLockMinutes, setAutoLockMinutes, kind, active, siblings, accounts } =
+    useWallet();
   const [confirm, setConfirm] = useState("");
   return (
     <Panel title="Security">
@@ -83,11 +84,13 @@ function SecurityPanel() {
         </div>
         <RevealSecret />
         <div className="flex flex-col gap-3 border-t border-border pt-5">
-          <p className="text-small font-medium">Remove wallet from this device</p>
+          <p className="text-small font-medium">
+            Remove {active?.name ?? "this wallet"} from this device
+          </p>
           <p className="text-caption text-muted">
-            Deletes the encrypted {kind === "mnemonic" ? "recovery phrase" : "private key"} and
-            local activity. You'll need your{" "}
-            {kind === "mnemonic" ? "recovery phrase" : "private key"} to restore it.
+            {siblings.length > 1
+              ? `Removes this account only. The recovery phrase stays on this device for its ${siblings.length - 1} other account${siblings.length === 2 ? "" : "s"}.`
+              : `Deletes the encrypted ${kind === "mnemonic" ? "recovery phrase" : "private key"}${accounts.length === 1 ? " and local activity" : ""}. You'll need your ${kind === "mnemonic" ? "recovery phrase" : "private key"} to restore it.`}
           </p>
           <Field
             label='Type "remove" to confirm'

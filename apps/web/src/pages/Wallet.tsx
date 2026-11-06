@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Page } from "../app/AppShell";
 import { useWallet } from "../state/wallet";
 import { Button } from "../ui/Button";
@@ -8,10 +8,19 @@ import { CreateWallet } from "./wallet/CreateWallet";
 import { ImportWallet } from "./wallet/ImportWallet";
 import { Unlock } from "./wallet/Unlock";
 import { WalletHome } from "./wallet/WalletHome";
+import { WalletsPanel } from "./wallet/WalletsPanel";
 
 export function Wallet() {
-  const { status, lock } = useWallet();
+  const { status, lock, active, accounts } = useWallet();
   const [flow, setFlow] = useState<"choose" | "create" | "import">("choose");
+  // "Add wallet" with wallets already present shows the create/import choice again.
+  const [adding, setAdding] = useState(false);
+  const activeId = active?.id;
+  useEffect(() => {
+    setAdding(false);
+    setFlow("choose");
+  }, [activeId]);
+  const showFlows = status === "none" || adding;
 
   return (
     <Page
@@ -20,13 +29,23 @@ export function Wallet() {
       actions={status === "unlocked" ? <Button onClick={lock}>Lock</Button> : null}
     >
       {status === "loading" && <Skeleton className="h-40 w-full" />}
-      {status === "locked" && (
-        <Panel title="Unlock">
+      {accounts.length > 0 && status !== "loading" && (
+        <div className="mb-5">
+          <WalletsPanel
+            onAdd={() => {
+              setAdding(true);
+              setFlow("choose");
+            }}
+          />
+        </div>
+      )}
+      {status === "locked" && !adding && (
+        <Panel title={`Unlock ${active?.name ?? "wallet"}`}>
           <Unlock />
         </Panel>
       )}
-      {status === "unlocked" && <WalletHome />}
-      {status === "none" && (
+      {status === "unlocked" && !adding && <WalletHome />}
+      {showFlows && (
         <Panel
           title={
             flow === "create"
@@ -58,6 +77,13 @@ export function Wallet() {
           )}
           {flow === "create" && <CreateWallet onCancel={() => setFlow("choose")} />}
           {flow === "import" && <ImportWallet onCancel={() => setFlow("choose")} />}
+          {adding && flow === "choose" && (
+            <div className="mt-4">
+              <Button variant="ghost" onClick={() => setAdding(false)}>
+                Cancel
+              </Button>
+            </div>
+          )}
         </Panel>
       )}
     </Page>

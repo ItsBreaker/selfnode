@@ -731,3 +731,30 @@ Headers`, `Waiting for peers...`) are strings in the shipped 2.2.2 binary;
   unaffected; Private mode still works inside a frame (checked).
 - The Swarm copy was re-uploaded with it: commit `970e60f`, reference
   `d7233e97…`, same Arkiv entity (`snapshot:web`) patched.
+
+## Multiple wallets (2026-11-06)
+
+- **Model:** encrypted vaults (a recovery phrase or a private key) stay in
+  IndexedDB, unchanged in format; a separate, non-secret list
+  (`localStorage["selfnode:wallets"]`) holds each account's name, vault id,
+  derivation index and address, and which one is active. A phrase vault can back
+  several accounts (`m/44'/60'/0'/0/n`); a key vault has one.
+- **Migration, no data loss:** the original single vault keeps its IndexedDB key
+  (`primary`). With no list stored, `migrateWalletMeta` makes it "Wallet 1"
+  (unit-tested, including a lost list never hiding the original vault). Verified
+  in the browser by deleting the list and reloading: the wallet reappeared and
+  unlocked with its password.
+- **Unchanged guarantees:** every vault scrypt + AES-GCM encrypted; one
+  password per vault; the decrypted key only in the active session, zeroed on
+  lock, auto-lock, page hide, switching wallets (switching always locks) and
+  removal; unlocking checks the derived key matches the account's address; the
+  signer is still testnet-only. Removal keeps the typed "remove" confirmation;
+  a vault is deleted only with its last account. Recovery-phrase reveal is per
+  wallet and password-gated, and notes when a phrase backs several accounts.
+- **Visible everywhere:** a bar under the header shows the active wallet
+  (name, address, locked or unlocked) with a link to switch.
+- **Verified on Sepolia** (browser, through Nox): send Wallet 1 → second wallet
+  `0x069c3a1e5c268b512a7b455c6595256ae9fa8b6da42190dab6f78316cb79e9b2`, swap
+  from the second wallet
+  `0xdc06e87837a88f0a16da3a15b5db1106a45c7500f9bbebcfa0edcc6d98fbabfc`, both
+  status 1; the first wallet's password is refused on the second.

@@ -15,6 +15,13 @@ export class InvalidKeyError extends Error {
   override readonly name = "InvalidKeyError";
 }
 
+/** The standard path for account `index` (0 = the first account). */
+export const derivationPath = (index: number) => {
+  if (!Number.isInteger(index) || index < 0 || index >= 2 ** 31)
+    throw new InvalidKeyError(`Invalid account index ${index}`);
+  return `m/44'/60'/0'/0/${index}`;
+};
+
 /** A new 12-word (128-bit) mnemonic from the platform CSPRNG. */
 export function generateMnemonic(): string {
   return bip39Generate(wordlist, 128);
@@ -28,13 +35,13 @@ export function isValidMnemonic(input: string): boolean {
   return validateMnemonic(normalizeMnemonic(input), wordlist);
 }
 
-/** Derive the account-0 private key. The caller owns (and should wipe) the bytes. */
-export async function privateKeyFromMnemonic(mnemonic: string): Promise<Uint8Array> {
+/** Derive account `index`'s private key (default 0). The caller owns (and should wipe) the bytes. */
+export async function privateKeyFromMnemonic(mnemonic: string, index = 0): Promise<Uint8Array> {
   const m = normalizeMnemonic(mnemonic);
   if (!validateMnemonic(m, wordlist)) throw new InvalidKeyError("That recovery phrase isn't valid");
   const seed = await mnemonicToSeed(m);
   try {
-    const key = HDKey.fromMasterSeed(seed).derive(DERIVATION_PATH);
+    const key = HDKey.fromMasterSeed(seed).derive(derivationPath(index));
     if (!key.privateKey) throw new InvalidKeyError("Derivation produced no private key");
     const out = Uint8Array.from(key.privateKey);
     key.wipePrivateData();

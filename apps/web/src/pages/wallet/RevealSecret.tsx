@@ -16,7 +16,7 @@ import { PhraseWords } from "./PhraseWords";
 const AUTO_HIDE_MS = 120_000;
 
 export function RevealSecret() {
-  const { reveal, kind } = useWallet();
+  const { reveal, kind, siblings } = useWallet();
   const what = kind === "mnemonic" ? "recovery phrase" : "private key";
   const [step, setStep] = useState<"idle" | "password">("idle");
   const [pw, setPw] = useState("");
@@ -68,6 +68,12 @@ export function RevealSecret() {
           <Callout tone="warning" title="Anyone who sees this can take your funds">
             Make sure no one is watching your screen. It hides itself after two minutes.
           </Callout>
+          {kind === "mnemonic" && siblings.length > 1 && (
+            <p className="text-caption text-muted">
+              This phrase backs {siblings.length} accounts on this device (
+              {siblings.map((a) => a.name).join(", ")}).
+            </p>
+          )}
           {kind === "mnemonic" ? (
             <PhraseWords phrase={secret} />
           ) : (
