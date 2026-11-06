@@ -255,8 +255,11 @@ about flagged recipients before you sign, and decode calldata.
   [`0xA05A5c06d69dECa38FdB779957d4E7B3aC2B8c39`](https://rabdi.explorer.arkiv.network/address/0xA05A5c06d69dECa38FdB779957d4E7B3aC2B8c39)
 - **Contents:** 2,105 tokens, 796 labels (144 contracts and 652 flagged
   addresses), 444 function signatures (covering 68.4% of calls in a 300-block
-  mainnet sample), and 4 licence-notice entities: 3,349 in all. Plus 3
-  `selfnode-snapshot` entities pointing at the Swarm snapshots.
+  mainnet sample), and 4 licence-notice entities: 3,349 at the first import. The
+  daily refresh re-samples usage, so the function-name set moves (462 current,
+  covering 72.6%, after the first refresh; older ones expire). Plus 4
+  `selfnode-snapshot` entities (3 dataset snapshots and the web app's Swarm
+  mirror).
 - **Importer:** [`scripts/arkiv-mirror/`](scripts/arkiv-mirror/). It's
   idempotent: it creates, patches, extends near expiry, or skips by a
   deterministic key. It guards a tGLM reserve. Run it with

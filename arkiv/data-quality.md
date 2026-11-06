@@ -104,9 +104,18 @@ ones that matter, ranked by **real usage**:
   (created / updated / extended / skipped / tGLM) to the run page. The mirror
   key and Arkiv access key are repository secrets, never in the repo.
 - A daily run starts with an empty cache, so it takes a fresh 300-block usage
-  sample; function-name ranks can shift a little, which costs at most a few
-  patches (444 × 0.00002 tGLM ≈ 0.009 tGLM if every rank changed). Locally the
-  sample is cached for 7 days.
+  sample. That changes the function-name set more than we first estimated. **The
+  first scheduled-workflow run (2026-11-06, manual) cost 0.064 tGLM**: tokens,
+  labels and notices were all unchanged (skipped), but the new sample kept 462
+  selectors (covering 72.6% of sampled calls): 169 new, 250 with a changed usage
+  rank (patched), 43 unchanged, and 151 from the first import no longer in the
+  top set (left to expire within 90 days, so Arkiv holds 613 for now). At that
+  rate the 8.8 tGLM balance lasts months; the 2 tGLM reserve stops writes
+  before it runs out. Locally the sample is cached for 7 days.
+- **Known trade-off:** the Swarm snapshots are point-in-time. `--from-swarm`
+  restores a snapshot's rows as they were, so after a refresh changes data, run
+  `--snapshot` again before relying on `--from-swarm` (otherwise it would patch
+  newer ranks back).
 - `sourceCommit` records the commit a row's values were imported from. Rows
   whose content is unchanged aren't rewritten when a source gets new commits.
 

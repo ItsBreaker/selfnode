@@ -10,7 +10,8 @@
 - **Anyone, in a browser: the public Data page** at
   [selfnode.jhfe.workers.dev/data](https://selfnode.jhfe.workers.dev/data) (no wallet). Search
   the 2,105 tokens by symbol or address, the 796 labels (652 flagged) by name,
-  category or address, and the 444 function names by selector or text. Every row
+  category or address, and the function names (444 at first import, refreshed
+  daily from a fresh usage sample) by selector or text. Every row
   shows its source, licence and source commit, and the page prints a standalone
   "query this yourself" snippet for the exact query it ran.
 
