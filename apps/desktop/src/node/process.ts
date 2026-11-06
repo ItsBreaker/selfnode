@@ -126,8 +126,21 @@ function winQuote(a: string): string {
   return `"${a.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/, "$1$1")}"`;
 }
 
+// SetConsoleCtrlHandler(NULL, FALSE) first: "restores normal processing of CTRL+C
+// input. This attribute of ignoring or processing CTRL+C is inherited by child
+// processes" (Win32 docs). Without it the client can inherit "ignore Ctrl+C" from
+// whatever started us (seen on GitHub's Windows runners) and never shut down.
 const LAUNCHER = `
 $ErrorActionPreference = 'Stop'
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class SelfnodeCtrlInherit {
+  [DllImport("kernel32.dll", SetLastError = true)] public static extern bool SetConsoleCtrlHandler(IntPtr handler, bool add);
+}
+'@
+$restored = [SelfnodeCtrlInherit]::SetConsoleCtrlHandler([IntPtr]::Zero, $false)
+[Console]::Out.WriteLine("SELFNODE_CTRLC_RESTORED " + $restored); [Console]::Out.Flush()
 $p = Start-Process -FilePath $env:SN_BIN -ArgumentList $env:SN_ARGS -WorkingDirectory $env:SN_CWD -WindowStyle Hidden -PassThru -RedirectStandardOutput $env:SN_OUT -RedirectStandardError $env:SN_ERR
 [Console]::Out.WriteLine("SELFNODE_PID " + $p.Id); [Console]::Out.Flush()
 $p.WaitForExit()
@@ -211,6 +224,10 @@ function startWindows(o: StartOptions): ManagedProcess {
         pid = Number(m[1]);
         resolve(pid);
       }
+      if (l.startsWith("SELFNODE_CTRLC_RESTORED"))
+        o.onNote(
+          `${o.name}: Ctrl+C handling ${l.endsWith("True") ? "restored" : "not confirmed"} for the client`,
+        );
       const e = l.match(/^SELFNODE_EXIT (-?\d+)/);
       if (e) exitCode = Number(e[1]);
     });
