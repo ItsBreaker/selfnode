@@ -132,6 +132,28 @@ export function setupIpc(appRoot: string): NodeManager {
     }),
   );
   ipcMain.handle(
+    "node:resync",
+    guard(async (client: unknown) => {
+      if (client !== "nethermind" && client !== "nimbus") throw new Error("bad client");
+      const name = client === "nethermind" ? "Nethermind" : "Nimbus";
+      const win = BrowserWindow.getFocusedWindow();
+      const opts = {
+        type: "warning" as const,
+        buttons: [`Delete ${name} data and resync`, "Cancel"],
+        defaultId: 1,
+        cancelId: 1,
+        message: `Resync ${name} from checkpoint?`,
+        detail: `This deletes ${name}'s database in ${settings.dataDir}. The next start syncs it again, which can take hours. Your wallet isn't affected.`,
+      };
+      const { response } = win
+        ? await dialog.showMessageBox(win, opts)
+        : await dialog.showMessageBox(opts);
+      if (response !== 0) return { deleted: false };
+      await manager.resync(client);
+      return { deleted: true };
+    }),
+  );
+  ipcMain.handle(
     "node:setPauseOnBattery",
     guard((v: unknown) => {
       if (typeof v !== "boolean") throw new Error("bad value");
@@ -191,6 +213,14 @@ export function setupIpc(appRoot: string): NodeManager {
     }),
   );
 
+  // OS shutdown / restart (macOS, Linux): delay it until both clients have stopped cleanly.
+  // Electron passes an Event here (docs: "If the event handler invokes e.preventDefault()…"),
+  // though its typings declare no arguments.
+  powerMonitor.on("shutdown", (...args: unknown[]) => {
+    if (!manager.running) return;
+    (args[0] as Electron.Event | undefined)?.preventDefault();
+    void manager.stop().finally(() => app.quit());
+  });
   powerMonitor.on("on-battery", () => void manager.onBattery());
   powerMonitor.on("on-ac", () => void manager.onAc());
   return manager;

@@ -16,6 +16,7 @@ const node = Object.freeze({
   setPauseOnBattery: (v: boolean) => ipcRenderer.invoke("node:setPauseOnBattery", v),
   setCheckpointUrl: (url: string) => ipcRenderer.invoke("node:setCheckpointUrl", url),
   chooseDataDir: () => ipcRenderer.invoke("node:chooseDataDir"),
+  resync: (client: "nethermind" | "nimbus") => ipcRenderer.invoke("node:resync", client),
   onStatus: (cb: (status: unknown) => void) => {
     const listener = (_e: IpcRendererEvent, s: unknown) => cb(s);
     ipcRenderer.on("node:status", listener);

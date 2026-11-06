@@ -34,7 +34,14 @@ export interface NodeStatus {
   etaSeconds: number | null;
   disk: { freeGB: number; totalGB: number } | null;
   dataDir: string;
+  problems: NodeProblem[];
   updatedAt: number;
+}
+
+export interface NodeProblem {
+  client: "nethermind" | "nimbus";
+  kind: "unclean-shutdown" | "database";
+  message: string;
 }
 
 export interface PreflightCheck {
@@ -98,6 +105,7 @@ export interface DesktopBridge {
     setPauseOnBattery(v: boolean): Promise<NodeSettings>;
     setCheckpointUrl(url: string): Promise<NodeSettings>;
     chooseDataDir(): Promise<NodeSettings>;
+    resync(client: "nethermind" | "nimbus"): Promise<{ deleted: boolean }>;
     onStatus(cb: (s: NodeStatus) => void): () => void;
   };
   vault: {

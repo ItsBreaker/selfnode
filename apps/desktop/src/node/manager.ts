@@ -1,38 +1,37 @@
 /**
  * Runs a pruned Sepolia node: Nethermind (execution) + Nimbus (consensus).
+ * Command lines and their documentation live in ./args.ts; process control
+ * (including real Ctrl+C on Windows) in ./process.ts.
  *
- * Disk-minimising configuration (each flag from the clients' docs):
- * - Nethermind (https://docs.nethermind.io/fundamentals/configuration):
- *   --config sepolia                            snap sync preset for Sepolia
- *   --Sync.DownloadBodiesInFastSync false       no historical block bodies
- *   --Sync.DownloadReceiptsInFastSync false     no historical receipts
- *     (history-pruning docs: a fresh sync otherwise keeps bodies/receipts from the
- *      ancient barrier on; database docs: those are 680 of Sepolia's 893 GB)
- *   --History.Pruning Rolling                   prune blocks/receipts older than
- *                                               History.RetentionEpochs (default and
- *                                               minimum 82125 epochs) as the head moves
- *   --Pruning.Mode Hybrid                       in-memory + full state pruning (default)
- *   --Pruning.FullPruningTrigger VolumeFreeSpace  full-prune automatically when free
- *                                               space drops below FullPruningThresholdMb
- *                                               (default 256000), as the state-pruning
- *                                               docs recommend leaving ≥250 GB for it
- * - Nimbus (https://nimbus.guide):
- *   trustedNodeSync --backfill=false            checkpoint sync, no block-history backfill
- *   --history=prune                             keep only the required ~5 months (default)
- *
- * All RPC/Engine/REST ports bind to 127.0.0.1. Only P2P ports are public.
+ * Damage handling: a "running" marker is written per client at start and
+ * removed only after a verified clean exit (exited after Ctrl+C/SIGINT without
+ * being force-killed, and printed its own clean-shutdown line). If a marker is
+ * found on the next start, or a client dies at startup with a database error,
+ * the status says so and offers a resync from checkpoint. Data is deleted only
+ * after the user confirms (see ipc.ts).
  */
-import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import {
+  CL_REST_PORT,
+  CLEAN_EXIT_CODE,
+  CLEAN_SHUTDOWN,
+  DB_FAILURE,
+  EL_RPC_PORT,
+  NETHERMIND_DB_CORRUPTION_EXIT,
+  nethermindArgs,
+  nimbusArgs,
+  nimbusCheckpointArgs,
+} from "./args";
 import { ensureInstalled, type Installed } from "./install";
-import { currentPlatform, type Manifest } from "./manifest";
+import { currentPlatform, type ClientId, type Manifest } from "./manifest";
 import { diskSpace, diskTooLow, preflight } from "./preflight";
+import { startClient, type ManagedProcess } from "./process";
 
-export const EL_RPC = "http://127.0.0.1:8545";
-const ENGINE_PORT = 8551;
-const CL_REST = "http://127.0.0.1:5052";
+export const EL_RPC = `http://127.0.0.1:${EL_RPC_PORT}`;
+const CL_REST = `http://127.0.0.1:${CL_REST_PORT}`;
+const STOP_TIMEOUT_MS = 60_000;
 
 export type NodeState =
   | "stopped"
@@ -45,6 +44,12 @@ export type NodeState =
   | "paused-low-disk"
   | "stopping"
   | "error";
+
+export interface NodeProblem {
+  client: ClientId;
+  kind: "unclean-shutdown" | "database";
+  message: string;
+}
 
 export interface NodeStatus {
   state: NodeState;
@@ -67,6 +72,8 @@ export interface NodeStatus {
   etaSeconds: number | null;
   disk: { freeGB: number; totalGB: number } | null;
   dataDir: string;
+  /** Unclean previous stops or database failures, each with a resync option. */
+  problems: NodeProblem[];
   updatedAt: number;
 }
 
@@ -96,11 +103,12 @@ export function isSynced(
   );
 }
 
-type Log = { source: "nethermind" | "nimbus" | "selfnode"; line: string; at: number };
+type LogSource = ClientId | "selfnode";
+type Log = { source: LogSource; line: string; at: number };
 
 export class NodeManager {
-  #el: ChildProcess | null = null;
-  #cl: ChildProcess | null = null;
+  #procs = new Map<ClientId, ManagedProcess>();
+  #cleanLine: Partial<Record<ClientId, boolean>> = {};
   #logs: Log[] = [];
   #poll: NodeJS.Timeout | null = null;
   #watchdog: NodeJS.Timeout | null = null;
@@ -116,19 +124,21 @@ export class NodeManager {
     private readonly alert: (title: string, body: string) => void,
   ) {
     this.#status = this.#blank("stopped", "Not running.");
+    this.#status.problems = this.#uncleanMarkers();
   }
 
   get status(): NodeStatus {
     return this.#status;
   }
   get running(): boolean {
-    return this.#el !== null || this.#cl !== null;
+    return [...this.#procs.values()].some((p) => p.running);
   }
-  logs(source?: Log["source"]): Log[] {
+  logs(source?: LogSource): Log[] {
     return source ? this.#logs.filter((l) => l.source === source) : this.#logs;
   }
   updateSettings(s: NodeSettings): void {
     this.settings = s;
+    if (!this.running) this.#set({ problems: this.#uncleanMarkers() });
   }
 
   #blank(state: NodeState, message: string): NodeStatus {
@@ -146,6 +156,7 @@ export class NodeManager {
       etaSeconds: null,
       disk: null,
       dataDir: this.settings?.dataDir ?? "",
+      problems: this.#status?.problems ?? [],
       updatedAt: Date.now(),
     };
   }
@@ -160,13 +171,38 @@ export class NodeManager {
     this.emit(this.#status);
   }
 
-  #log(source: Log["source"], text: string): void {
-    for (const line of text.split(/\r?\n/)) {
-      if (!line.trim()) continue;
-      this.#logs.push({ source, line: line.slice(0, 2000), at: Date.now() });
-    }
+  #log(source: LogSource, line: string): void {
+    this.#logs.push({ source, line: line.slice(0, 2000), at: Date.now() });
     if (this.#logs.length > 3000) this.#logs.splice(0, this.#logs.length - 3000);
   }
+
+  // ------------------------------------------------------------ markers
+
+  #dirs() {
+    const root = this.settings.dataDir;
+    const d = {
+      root,
+      nethermind: join(root, "nethermind"),
+      nimbus: join(root, "nimbus"),
+      logs: join(root, "logs"),
+    };
+    for (const p of Object.values(d)) mkdirSync(p, { recursive: true });
+    return d;
+  }
+  #marker(client: ClientId): string {
+    return join(this.settings.dataDir, `.${client}.running`);
+  }
+  #uncleanMarkers(): NodeProblem[] {
+    return (["nethermind", "nimbus"] as const)
+      .filter((c) => existsSync(this.#marker(c)))
+      .map((client) => ({
+        client,
+        kind: "unclean-shutdown" as const,
+        message: `${client === "nethermind" ? "Nethermind" : "Nimbus"} didn't shut down cleanly last time. It usually recovers on start; if it won't start, resync it from checkpoint.`,
+      }));
+  }
+
+  // ------------------------------------------------------------ start
 
   async start(): Promise<void> {
     if (this.running) return;
@@ -180,7 +216,11 @@ export class NodeManager {
       throw new Error(this.#status.message);
     }
     try {
-      this.#set({ state: "installing", message: "Checking client binaries…" });
+      this.#set({
+        state: "installing",
+        message: "Checking client binaries…",
+        problems: this.#uncleanMarkers(),
+      });
       const progress = (m: string) => {
         this.#log("selfnode", m);
         this.#set({ message: m });
@@ -195,60 +235,11 @@ export class NodeManager {
       const cl = await ensureInstalled(this.manifest, "nimbus", platform, this.binRoot, progress);
       const dirs = this.#dirs();
       const jwt = this.#jwt(dirs.root);
-      if (!existsSync(dirs.cl) || readdirSync(dirs.cl).length === 0)
-        await this.#checkpointSync(cl, dirs.cl);
+      if (readdirSync(dirs.nimbus).length === 0)
+        await this.#checkpointSync(cl, dirs.nimbus, dirs.logs);
       this.#set({ state: "starting", message: "Starting Nethermind and Nimbus…" });
-      this.#el = this.#spawn("nethermind", el, [
-        "--config",
-        "sepolia",
-        "--data-dir",
-        dirs.el,
-        "--Sync.DownloadBodiesInFastSync",
-        "false",
-        "--Sync.DownloadReceiptsInFastSync",
-        "false",
-        "--History.Pruning",
-        "Rolling",
-        "--Pruning.Mode",
-        "Hybrid",
-        "--Pruning.FullPruningTrigger",
-        "VolumeFreeSpace",
-        "--JsonRpc.Enabled",
-        "true",
-        "--JsonRpc.Host",
-        "127.0.0.1",
-        "--JsonRpc.Port",
-        "8545",
-        "--JsonRpc.EngineHost",
-        "127.0.0.1",
-        "--JsonRpc.EnginePort",
-        String(ENGINE_PORT),
-        "--JsonRpc.JwtSecretFile",
-        jwt,
-        "--JsonRpc.EnabledModules",
-        // Admin only on Windows, for admin_pauseBlockProcessing before a forced stop (see stop()).
-        process.platform === "win32"
-          ? "[Eth,Net,Web3,Health,Proof,Admin]"
-          : "[Eth,Net,Web3,Health,Proof]",
-        "--Init.WebSocketsEnabled",
-        "false",
-        "--HealthChecks.Enabled",
-        "false",
-        "--Metrics.Enabled",
-        "false",
-      ]);
-      this.#cl = this.#spawn("nimbus", cl, [
-        "--network=sepolia",
-        `--data-dir=${dirs.cl}`,
-        `--el=http://127.0.0.1:${ENGINE_PORT}`,
-        `--jwt-secret=${jwt}`,
-        "--history=prune",
-        "--rest",
-        "--rest-address=127.0.0.1",
-        "--rest-port=5052",
-        "--metrics=false",
-        "--non-interactive",
-      ]);
+      this.#launch("nethermind", el, nethermindArgs(dirs.nethermind, jwt), dirs.logs);
+      this.#launch("nimbus", cl, nimbusArgs(dirs.nimbus, jwt), dirs.logs);
       this.#set({ state: "syncing", message: "Syncing Sepolia." });
       this.#startTimers();
     } catch (e) {
@@ -256,13 +247,6 @@ export class NodeManager {
       this.#set({ state: "error", message: (e as Error).message });
       throw e;
     }
-  }
-
-  #dirs() {
-    const root = this.settings.dataDir;
-    const d = { root, el: join(root, "nethermind"), cl: join(root, "nimbus") };
-    for (const p of Object.values(d)) mkdirSync(p, { recursive: true });
-    return d;
   }
 
   /** A JWT secret generated locally, readable by the user only. */
@@ -273,7 +257,7 @@ export class NodeManager {
     return path;
   }
 
-  async #checkpointSync(cl: Installed, dir: string): Promise<void> {
+  async #checkpointSync(cl: Installed, dir: string, logs: string): Promise<void> {
     this.#log(
       "selfnode",
       `Checkpoint sync (no history backfill) from ${this.settings.checkpointUrl}`,
@@ -282,55 +266,69 @@ export class NodeManager {
       state: "checkpoint-sync",
       message: `Checkpoint sync from ${new URL(this.settings.checkpointUrl).host}…`,
     });
-    await new Promise<void>((resolve, reject) => {
-      const p = spawn(
-        cl.binary,
-        [
-          "trustedNodeSync",
-          "--network=sepolia",
-          `--data-dir=${dir}`,
-          `--trusted-node-url=${this.settings.checkpointUrl}`,
-          "--backfill=false",
-        ],
-        { cwd: cl.dir, stdio: ["ignore", "pipe", "pipe"], windowsHide: true },
-      );
-      p.stdout?.on("data", (b: Buffer) => this.#log("nimbus", b.toString()));
-      p.stderr?.on("data", (b: Buffer) => this.#log("nimbus", b.toString()));
-      p.on("error", reject);
-      p.on("exit", (code) => {
-        if (code === 0) this.#log("selfnode", "Checkpoint sync complete.");
-      });
-      p.on("exit", (code) =>
-        code === 0
-          ? resolve()
-          : reject(new Error(`Checkpoint sync failed (exit ${code}). See the Nimbus log.`)),
+    const p = startClient({
+      name: "nimbus-checkpoint",
+      binary: cl.binary,
+      args: nimbusCheckpointArgs(dir, this.settings.checkpointUrl),
+      cwd: cl.dir,
+      logDir: logs,
+      onLine: (l) => this.#log("nimbus", l),
+      onNote: (n) => this.#log("selfnode", n),
+    });
+    const { code } = await p.exited;
+    if (code !== 0) throw new Error(`Checkpoint sync failed (exit ${code}). See the Nimbus log.`);
+    this.#log("selfnode", "Checkpoint sync complete.");
+  }
+
+  #launch(client: ClientId, inst: Installed, args: string[], logDir: string): void {
+    this.#log("selfnode", `Starting ${client} ${inst.version}`);
+    writeFileSync(this.#marker(client), new Date().toISOString());
+    this.#cleanLine[client] = false;
+    const started = Date.now();
+    const recent: string[] = [];
+    const p = startClient({
+      name: client,
+      binary: inst.binary,
+      args,
+      cwd: inst.dir,
+      logDir,
+      onLine: (l) => {
+        this.#log(client, l);
+        if (CLEAN_SHUTDOWN[client].test(l)) this.#cleanLine[client] = true;
+        recent.push(l);
+        if (recent.length > 200) recent.shift();
+      },
+      onNote: (n) => this.#log("selfnode", n),
+    });
+    this.#procs.set(client, p);
+    void p.exited.then(({ code, signal }) => {
+      this.#log("selfnode", `${client} exited (${signal ?? `exit ${code}`})`);
+      if (this.#stopping) return;
+      // Died on its own. A failure soon after start with a database error = likely damaged data.
+      const dbError =
+        (client === "nethermind" && code === NETHERMIND_DB_CORRUPTION_EXIT) ||
+        (Date.now() - started < 180_000 && recent.some((l) => DB_FAILURE[client].test(l)));
+      const name = client === "nethermind" ? "Nethermind" : "Nimbus";
+      const problems: NodeProblem[] = dbError
+        ? [
+            {
+              client,
+              kind: "database",
+              message: `${name} couldn't open its database. It may have been damaged by an unclean stop. Resync it from checkpoint to recover.`,
+            },
+          ]
+        : this.#status.problems;
+      void this.stop("error").then(() =>
+        this.#set({
+          state: "error",
+          message: `${name} stopped unexpectedly (${signal ?? `exit ${code}`}). See its log.`,
+          problems,
+        }),
       );
     });
   }
 
-  #spawn(source: "nethermind" | "nimbus", inst: Installed, args: string[]): ChildProcess {
-    this.#log("selfnode", `Starting ${source} ${inst.version}`);
-    const p = spawn(inst.binary, args, {
-      cwd: inst.dir,
-      stdio: ["ignore", "pipe", "pipe"],
-      windowsHide: true,
-    });
-    p.stdout?.on("data", (b: Buffer) => this.#log(source, b.toString()));
-    p.stderr?.on("data", (b: Buffer) => this.#log(source, b.toString()));
-    p.on("exit", (code, signal) => {
-      this.#log("selfnode", `${source} exited (${signal ?? code})`);
-      if (source === "nethermind") this.#el = null;
-      else this.#cl = null;
-      if (!this.#stopping) {
-        void this.stop("error");
-        this.#set({
-          state: "error",
-          message: `${source} stopped unexpectedly (${signal ?? `exit ${code}`}). See its log.`,
-        });
-      }
-    });
-    return p;
-  }
+  // ------------------------------------------------------------ status
 
   #startTimers(): void {
     this.#poll = setInterval(() => void this.#refresh(), 5000);
@@ -366,9 +364,9 @@ export class NodeManager {
   }
 
   async #refresh(): Promise<void> {
-    const ex = { ...this.#status.execution, running: this.#el !== null };
+    const ex = { ...this.#status.execution, running: !!this.#procs.get("nethermind")?.running };
+    const cs = { ...this.#status.consensus, running: !!this.#procs.get("nimbus")?.running };
     let headAgeSeconds: number | null = null;
-    const cs = { ...this.#status.consensus, running: this.#cl !== null };
     try {
       const [syncing, peers, block, head] = await Promise.all([
         this.#rpc<false | { currentBlock: string; highestBlock: string }>("eth_syncing"),
@@ -376,11 +374,11 @@ export class NodeManager {
         this.#rpc<string>("eth_blockNumber"),
         this.#rpc<{ timestamp: string } | null>("eth_getBlockByNumber", ["latest", false]),
       ]);
-      headAgeSeconds = head ? Math.round(Date.now() / 1000 - Number(head.timestamp)) : null;
       ex.peers = Number(peers);
       ex.syncing = syncing !== false;
       ex.currentBlock = syncing ? Number(syncing.currentBlock) : Number(block);
       ex.highestBlock = syncing ? Number(syncing.highestBlock) : Number(block);
+      headAgeSeconds = head ? Math.round(Date.now() / 1000 - Number(head.timestamp)) : null;
     } catch {
       /* not answering yet */
     }
@@ -398,7 +396,6 @@ export class NodeManager {
     } catch {
       /* not answering yet */
     }
-    // ETA from the execution layer's recent rate (blocks/second over ~5 minutes).
     let eta: number | null = null;
     if (ex.currentBlock && ex.highestBlock && ex.syncing) {
       this.#samples.push({ t: Date.now(), block: ex.currentBlock });
@@ -426,61 +423,65 @@ export class NodeManager {
     });
   }
 
-  /** Stop both clients cleanly (SIGINT, then SIGKILL after 60 s). */
+  // ------------------------------------------------------------ stop
+
+  /**
+   * Stop both clients gracefully: Ctrl+C (Windows) or SIGINT (macOS), up to
+   * 60 s each, force-killing only after that. Consensus first, then execution.
+   */
   async stop(reason: NodeState = "stopped"): Promise<void> {
     this.#stopping = true;
     if (this.#poll) clearInterval(this.#poll);
     if (this.#watchdog) clearInterval(this.#watchdog);
     this.#poll = this.#watchdog = null;
     if (!this.running) {
-      if (reason === "stopped") this.#set(this.#blank("stopped", "Not running."));
+      if (reason === "stopped")
+        this.#set({ ...this.#blank("stopped", "Not running."), problems: this.#uncleanMarkers() });
       return;
     }
-    this.#set({ state: "stopping", message: "Stopping the node cleanly…" });
-    const stopOne = (p: ChildProcess | null) =>
-      new Promise<void>((resolve) => {
-        if (!p || p.exitCode !== null) return resolve();
-        const kill = setTimeout(() => p.kill("SIGKILL"), 60_000);
-        p.once("exit", () => {
-          clearTimeout(kill);
-          resolve();
-        });
-        p.kill("SIGINT");
-      });
-    if (process.platform === "win32") await this.#prepareWindowsStop();
-    // Consensus first (it drives the execution client), then execution.
-    await stopOne(this.#cl);
-    await stopOne(this.#el);
-    this.#el = this.#cl = null;
+    this.#set({
+      state: "stopping",
+      message: "Stopping the node cleanly (this can take up to a minute)…",
+    });
+    for (const client of ["nimbus", "nethermind"] as const) {
+      const p = this.#procs.get(client);
+      if (!p) continue;
+      const r = await p.stop(STOP_TIMEOUT_MS);
+      const clean =
+        r.graceful && this.#cleanLine[client] === true && r.code === CLEAN_EXIT_CODE[client];
+      this.#log(
+        "selfnode",
+        `${client} stopped ${clean ? "cleanly" : r.graceful ? "without its clean-shutdown message" : "by force after 60 s"} (exit ${r.code ?? r.signal ?? "?"}).`,
+      );
+      if (clean) rmSync(this.#marker(client), { force: true });
+      this.#procs.delete(client);
+    }
+    const problems = this.#uncleanMarkers();
     this.#set({
       ...this.#blank(reason, reason === "stopped" ? "Stopped." : this.#status.message),
       disk: this.#status.disk,
+      problems,
     });
   }
 
   /**
-   * Windows has no way (without native code) to send these console apps a
-   * Ctrl+C, so stop() ends them forcefully. Best effort first: pause
-   * Nethermind's block processing so no block is mid-write when it's killed.
-   * Neither client offers a shutdown RPC; Nimbus only stops cleanly on SIGINT.
+   * Delete one client's data so it resyncs from checkpoint on the next start.
+   * Only called after the user confirmed in a native dialog (ipc.ts).
    */
-  async #prepareWindowsStop(): Promise<void> {
-    try {
-      const ok = await this.#rpc<boolean>("admin_pauseBlockProcessing");
-      for (let i = 0; ok && i < 20; i++) {
-        if (await this.#rpc<boolean>("admin_isBlockProcessingPaused")) break;
-        await new Promise((r) => setTimeout(r, 500));
-      }
-      this.#log(
-        "selfnode",
-        `Windows: paused Nethermind block processing before stopping (${ok ? "ok" : "not confirmed"}).`,
-      );
-    } catch (e) {
-      this.#log(
-        "selfnode",
-        `Windows: couldn't pause block processing before stopping (${(e as Error).message}).`,
-      );
-    }
+  async resync(client: ClientId): Promise<void> {
+    if (this.running) throw new Error("Stop the node before resyncing.");
+    const dirs = this.#dirs();
+    rmSync(dirs[client], { recursive: true, force: true });
+    mkdirSync(dirs[client], { recursive: true });
+    rmSync(this.#marker(client), { force: true });
+    this.#log(
+      "selfnode",
+      `${client} data deleted at the user's request; it will resync from checkpoint on the next start.`,
+    );
+    this.#set({
+      problems: this.#uncleanMarkers(),
+      message: `${client === "nethermind" ? "Nethermind" : "Nimbus"} will resync from checkpoint when you start the node.`,
+    });
   }
 
   async onBattery(): Promise<void> {

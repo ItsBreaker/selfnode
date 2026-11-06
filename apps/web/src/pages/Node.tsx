@@ -190,6 +190,28 @@ function NodeManager() {
             client won't start afterwards, the node may need to resync.
           </Callout>
         )}
+        {status?.problems.map((p) => (
+          <Callout
+            key={p.client + p.kind}
+            tone={p.kind === "database" ? "danger" : "warning"}
+            title={
+              p.kind === "database"
+                ? "A client's database couldn't be opened"
+                : "The last stop wasn't clean"
+            }
+            action={
+              <Button
+                size="sm"
+                disabled={running}
+                onClick={() => void act(() => bridge.node.resync(p.client))}
+              >
+                Resync {p.client === "nethermind" ? "Nethermind" : "Nimbus"} from checkpoint
+              </Button>
+            }
+          >
+            {p.message} You'll be asked to confirm before anything is deleted.
+          </Callout>
+        ))}
         {error && (
           <Callout tone="danger" title="Couldn't complete that">
             {error}

@@ -59,6 +59,15 @@ function createWindow(): BrowserWindow {
   win.webContents.on("will-navigate", (e, url) => {
     if (!url.startsWith(`${ORIGIN}/`)) e.preventDefault();
   });
+  // Windows shutdown / restart / log-off: delay it until both clients have stopped cleanly.
+  win.on("query-session-end", (e) => {
+    if (!manager?.running) return;
+    e.preventDefault();
+    void manager.stop().finally(() => app.quit());
+  });
+  win.on("session-end", () => {
+    if (manager?.running) void manager.stop();
+  });
   void win.loadURL(`${ORIGIN}/`);
   return win;
 }
