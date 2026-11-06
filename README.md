@@ -17,7 +17,7 @@ MIT licensed.
 | **Private mode** (default): all reads and every broadcast go through [Anon-RPC](https://github.com/ethereum/anon-rpc) (Nox by default; Nym and Tor selectable) | ✅ live, tested in-browser                                                               |
 | **Verified mode**: [Helios](https://github.com/a16z/helios) light client checks answers against consensus (mainnet; Sepolia needs your own consensus endpoint) | ✅ live                                                                                  |
 | **My node mode**: reads from your own node; broadcasts still go through Anon-RPC                                                                               | ✅ live                                                                                  |
-| **Wallet**: create/import, scrypt + AES-GCM vault, auto-lock, Sepolia sends with a plain-English pre-sign preview                                              | ✅ live, end-to-end on Sepolia                                                           |
+| **Wallet**: create/import, scrypt + AES-GCM vault, auto-lock, Sepolia sends with a plain-English pre-sign preview, Max for ETH, password-gated phrase reveal   | ✅ live, end-to-end on Sepolia                                                           |
 | **Explorer**: address, transaction and block views, ENS search, ⌘K, labels and function names from **Arkiv**                                                   | ✅ live                                                                                  |
 | **Swap**: Uniswap v4 on Sepolia, quoted on-chain, Universal Router + Permit2                                                                                   | ✅ live, end-to-end on Sepolia                                                           |
 | **Arkiv mirror**: open-licensed labels, scam list, tokens and function names, re-runnable importer                                                             | ✅ 3,349 entities on Rabdi                                                               |
@@ -160,7 +160,7 @@ Every exception, and why:
 - MIT licence. Pinned exact dependency versions with a committed lockfile.
 - Dependency install scripts are blocked except `esbuild`, and pnpm's
   minimum-release-age policy applies with no exceptions.
-- CI runs typecheck, lint, format, 126 tests and gitleaks on every push, plus macOS and Windows desktop builds.
+- CI runs typecheck, lint, format, 132 tests and gitleaks on every push, plus macOS and Windows desktop builds.
 - Builds with `pnpm install && pnpm --filter @selfnode/web build`.
 
 **Privacy**

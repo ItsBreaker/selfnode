@@ -237,7 +237,17 @@ update when ESLint ships a patched range.
   Some dangers need an explicit acknowledgement; others block the send.
 - **History:** only transactions sent from this device, stored locally. Full
   address history needs an archive node (Phase 3 says so in the explorer).
-- **No ENS recipients yet**, and no Max button for ETH. Both are deferred.
+- **Max for ETH (added in Phase 7):** balance minus buffered gas × the larger
+  of 2× the max fee or fee + 1 gwei. Sepolia fees are a few wei and move
+  between Max and Review, so a 10% margin failed review in testing; review
+  still re-checks everything and blocks rather than sends if fees jump past
+  the reserve.
+- **Show the recovery phrase again (Phase 7):** always asks for the password
+  and decrypts the vault afresh; hidden on Hide, after two minutes, on tab hide
+  or lock.
+- **Still no ENS recipients.** In Private mode the name would be resolved by an
+  unverified public RPC, which could return any address; doing this safely
+  needs Verified-mode resolution and a clear "resolved to" confirmation. Deferred.
 - **End-to-end on Sepolia (2026-11-06):** a wallet created in the browser UI,
   funded by `scripts/fund-sepolia.ts`, sent 0.0005 ETH back through the UI.
   Signed in-browser, broadcast through Nox, confirmed
