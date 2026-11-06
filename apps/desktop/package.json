@@ -1,0 +1,13 @@
+{
+  "name": "@selfnode/desktop",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json",
+    "start": "pnpm --filter @selfnode/web build && tsc -p tsconfig.json && node launch.mjs"
+  },
+  "devDependencies": {
+    "electron": "45.2.2"
+  }
+}

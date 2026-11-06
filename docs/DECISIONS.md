@@ -380,3 +380,23 @@ update when ESLint ships a patched range.
   every path returns 200 with the intended headers, the sandbox page is served at
   `/anon-rpc-iframe.html` with its own CSP, and Nox, Helios (mainnet), Arkiv
   labels and the swap page run in headless Chromium with zero CSP violations.
+
+## Phase 5: desktop (Electron)
+
+- **Anon-RPC sandbox under `app://`: works. No fallback needed** (checked
+  2026-11-06 at 14:58, about 4 minutes into the 90-minute window). The production
+  web build is served from `app://selfnode` with the website's `_headers`, in a
+  `contextIsolation` + `sandbox` window without `nodeIntegration`. Results:
+  Nox (live block in 6.7 s), Nym (26 s), Helios Verified mode on mainnet with its
+  WASM (5.1 s) and Arkiv labels through Nox (7.2 s), all with zero CSP violations
+  and zero console errors. The harness's same-origin `iframeUrl` check passes
+  because `app` is registered as a standard, secure scheme.
+- **One source of truth for headers:** the desktop protocol handler parses the
+  web build's `_headers` (tested against the real file), so the app and the
+  website enforce the same CSP.
+- **`ELECTRON_RUN_AS_NODE` gotcha:** VS Code sets it for child processes, which
+  makes Electron run as plain Node (`protocol` is undefined). `launch.mjs` clears
+  it for `pnpm start`.
+- **Electron 45.2.2:** the newest release older than pnpm's minimum release age.
+  Its postinstall (binary download from Electron's GitHub releases, checked
+  against SHA-256 sums) is allowed in `allowBuilds`.
