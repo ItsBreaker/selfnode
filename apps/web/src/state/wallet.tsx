@@ -31,6 +31,11 @@ interface WalletCtx {
   create: (secret: Secret, password: string, onProgress?: (f: number) => void) => Promise<void>;
   unlock: (password: string, onProgress?: (f: number) => void) => Promise<void>;
   lock: () => void;
+  /**
+   * Decrypt the stored secret again to show it to the user. Always needs the
+   * password, even when unlocked. The caller must drop it as soon as it's hidden.
+   */
+  reveal: (password: string, onProgress?: (f: number) => void) => Promise<Secret>;
   remove: () => Promise<void>;
   autoLockMinutes: number;
   setAutoLockMinutes: (m: number) => void;
@@ -99,6 +104,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     [blob, adopt],
   );
 
+  const reveal = useCallback(
+    async (password: string, onProgress?: (f: number) => void) => {
+      if (!blob || !sessionRef.current) throw new Error("Unlock the wallet first");
+      const { openVault } = await walletLib();
+      return openVault(blob, password, onProgress);
+    },
+    [blob],
+  );
+
   const remove = useCallback(async () => {
     lock();
     await vaultStore.clear();
@@ -143,11 +157,23 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       create,
       unlock,
       lock,
+      reveal,
       remove,
       autoLockMinutes,
       setAutoLockMinutes,
     }),
-    [status, blob, session, create, unlock, lock, remove, autoLockMinutes, setAutoLockMinutes],
+    [
+      status,
+      blob,
+      session,
+      create,
+      unlock,
+      lock,
+      reveal,
+      remove,
+      autoLockMinutes,
+      setAutoLockMinutes,
+    ],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

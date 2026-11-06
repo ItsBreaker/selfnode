@@ -10,6 +10,7 @@ import { Field } from "../../ui/Field";
 import { Panel } from "../../ui/Panel";
 import { Segmented } from "../../ui/Segmented";
 import { BalancesPanel } from "./BalancesPanel";
+import { RevealSecret } from "./RevealSecret";
 import { SendFlow } from "./SendFlow";
 
 function ActivityPanel() {
@@ -79,6 +80,7 @@ function SecurityPanel() {
         <div>
           <Button onClick={lock}>Lock now</Button>
         </div>
+        <RevealSecret />
         <div className="flex flex-col gap-3 border-t border-border pt-5">
           <p className="text-small font-medium">Remove wallet from this device</p>
           <p className="text-caption text-muted">
