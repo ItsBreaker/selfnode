@@ -15,6 +15,8 @@ import {
   viemChains,
   type ChainKey,
   type ConnectionInfo,
+  type NetworkTestResult,
+  type RetryState,
   type Route,
   type TrafficSnapshot,
   type TransportSettings,
@@ -67,6 +69,8 @@ function loadTotals(): Record<Route, number> {
 class TrafficStore {
   session: TrafficSnapshot;
   total: TrafficSnapshot;
+  /** Attempts that got no answer this session (not counted under any route). */
+  failed: number;
   #base: Record<Route, number>;
   #listeners = new Set<() => void>();
   #timer: ReturnType<typeof setTimeout> | undefined;
@@ -74,8 +78,10 @@ class TrafficStore {
     this.#base = loadTotals();
     this.session = router.counter.snapshot();
     this.total = this.#sum();
+    this.failed = router.counter.failed;
     router.counter.subscribe((s) => {
       this.session = s;
+      this.failed = router.counter.failed;
       this.total = this.#sum();
       this.#emit();
       clearTimeout(this.#timer);
@@ -188,7 +194,8 @@ export function useTraffic() {
   const store = trafficStore(router);
   const session = useSyncExternalStore(store.subscribe, () => store.session);
   const total = useSyncExternalStore(store.subscribe, () => store.total);
-  return { session, total, resetAll: store.resetAll };
+  const failed = useSyncExternalStore(store.subscribe, () => store.failed);
+  return { session, total, failed, resetAll: store.resetAll };
 }
 
 export interface ConnectionView extends ConnectionInfo {
@@ -209,14 +216,26 @@ export function useFailover() {
       active: router.activeNetwork,
       events: router.failovers,
       retry: () => router.retryPreferred(),
+      test: (onResult?: (r: NetworkTestResult) => void) => router.testNetworks(onResult),
     }),
     [key, router],
   );
 }
 
+/** A read being retried while the network makes its first connection, or null. */
+export function useRetry(): RetryState | null {
+  const { router } = useSelfnode();
+  const key = useSyncExternalStore(
+    (l) => router.subscribeRetry(l),
+    () => JSON.stringify(router.retryState),
+  );
+  return useMemo(() => JSON.parse(key) as RetryState | null, [key]);
+}
+
 export function useConnection(): ConnectionView {
   const { router, settings } = useSelfnode();
   const { active } = useFailover();
+  const retry = useRetry();
   const health = useSyncExternalStore(
     (l) => router.health.subscribe(l),
     () => router.health.snapshot(),
@@ -232,6 +251,7 @@ export function useConnection(): ConnectionView {
     worker,
     health,
     directCount: session["direct-approved"],
+    retry,
   });
   const via =
     settings.mode === "private"
@@ -239,7 +259,14 @@ export function useConnection(): ConnectionView {
       : settings.mode === "verified"
         ? "Helios · direct"
         : (hostOf(settings.myNodeUrl?.[settings.chain]) ?? "no node set");
-  return { ...info, via, chainName: chains[settings.chain].name };
+  return {
+    ...info,
+    via:
+      settings.mode === "private" && retry
+        ? `${via} · retrying (attempt ${retry.attempt} of ${retry.of})`
+        : via,
+    chainName: chains[settings.chain].name,
+  };
 }
 
 function hostOf(url: string | undefined): string | null {

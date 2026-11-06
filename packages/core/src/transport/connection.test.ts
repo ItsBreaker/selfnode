@@ -13,6 +13,16 @@ const h = (p: Partial<HealthSnapshot> = {}): HealthSnapshot => ({
 });
 
 describe("deriveConnection", () => {
+  it("shows a retry as connecting (with the attempt), not unavailable", () => {
+    const c = deriveConnection({
+      mode: "private",
+      worker: { state: "failed", error: "tunnel timeout" },
+      health: h(),
+      directCount: 0,
+      retry: { attempt: 2 },
+    });
+    expect(c).toMatchObject({ state: "starting", attempt: 2, problem: null });
+  });
   it("is starting while the anonymity network connects", () => {
     expect(
       deriveConnection({

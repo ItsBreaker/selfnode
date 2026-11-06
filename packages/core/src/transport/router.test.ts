@@ -90,8 +90,11 @@ describe("TransportRouter", () => {
     const router = new TransportRouter(base, { workerFactory: w.factory, fetch: direct.fn });
     const client = createPublicClient({ transport: router.transport() });
     await expect(client.getBlockNumber({ cacheTime: 0 })).rejects.toThrow();
-    // The only direct request is the disclosed bootstrap read; no RPC fallback.
-    expect(direct.urls).toHaveLength(1);
+    // The only direct requests are the disclosed bootstrap reads (one per start:
+    // the first try and two retries, each restarting the worker); no RPC fallback.
+    expect(direct.urls).toHaveLength(3);
+    for (const call of (direct.fn as unknown as ReturnType<typeof vi.fn>).mock.calls)
+      expect(String((call[1] as RequestInit | undefined)?.body)).toContain("eth_call");
     expect(router.counter.snapshot()["direct-approved"]).toBe(0);
   });
 
@@ -391,14 +394,20 @@ describe("anonymity-network failover (never to direct)", () => {
         method: "POST",
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_chainId" }),
       });
+      // Nox is still making its first connection, so it gets 60 s, not 20 s.
       await vi.advanceTimersByTimeAsync(20_001);
+      expect(router.failovers).toEqual([]);
+      await vi.advanceTimersByTimeAsync(40_000);
       await vi.advanceTimersByTimeAsync(2_000); // the short wait for the backup to be ready
       await expect(p).resolves.toBeInstanceOf(Response);
       expect(router.failovers[0]).toMatchObject({
+        kind: "failover",
         from: "nox",
         to: "nym",
-        reason: "no answer within 20 s",
+        reason: "no answer within 60 s",
       });
+      // The failed attempt isn't counted as traffic; the answered one is.
+      expect(router.counter.failed).toBe(1);
     } finally {
       vi.useRealTimers();
     }
@@ -516,6 +525,7 @@ describe("anonymity-network failover (never to direct)", () => {
       method: "POST",
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_chainId" }),
     };
+    await f("https://rpc.example", req); // connected (no first-connect retries from here)
     fail = 1;
     await expect(f("https://rpc.example", req)).rejects.toThrow("socket closed");
     expect(router.activeNetwork).toBe("nox");
@@ -541,5 +551,133 @@ describe("anonymity-network failover (never to direct)", () => {
     expect(r.activeNetwork).toBe("nym");
     r.retryPreferred();
     expect(r.activeNetwork).toBe("nox");
+  });
+});
+
+// --- First connection, recovery, connection test -----------------------------
+describe("first connection, recovery and the connection test", () => {
+  const on: TransportSettings = { ...base, anonFailover: true };
+  const req = {
+    method: "POST",
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_chainId" }),
+  };
+
+  it("retries a read with backoff while the network is still connecting, showing the attempt", async () => {
+    vi.useFakeTimers();
+    try {
+      let failures = 2;
+      const factory = vi.fn(async (): Promise<AnonWorkerLike> => ({
+        ready: new Promise<void>(() => {}), // still connecting
+        fetch: async (_i, i2) => {
+          if (failures-- > 0) throw new Error("socket closed");
+          return rpcReply(i2?.body);
+        },
+        close: () => {},
+      }));
+      const router = new TransportRouter(base, {
+        workerFactory: factory,
+        fetch: directFetchSpy().fn,
+      });
+      const seen: string[] = [];
+      router.subscribeRetry(() =>
+        seen.push(router.retryState ? `attempt ${router.retryState.attempt}` : "done"),
+      );
+      const p = router.anonFetch()("https://rpc.example", req);
+      await vi.advanceTimersByTimeAsync(5_000);
+      await expect(p).resolves.toBeInstanceOf(Response);
+      expect(seen).toEqual(["attempt 2", "attempt 3", "done"]);
+      // Two failed attempts, counted apart; one request actually answered.
+      expect(router.counter.failed).toBe(2);
+      expect(router.counter.snapshot()["anon-rpc"]).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("gives up after the last retry, and never goes direct", async () => {
+    vi.useFakeTimers();
+    try {
+      const factory = vi.fn(async (): Promise<AnonWorkerLike> => ({
+        ready: new Promise<void>(() => {}),
+        fetch: async () => {
+          throw new Error("socket closed");
+        },
+        close: () => {},
+      }));
+      const direct = directFetchSpy();
+      const router = new TransportRouter(base, { workerFactory: factory, fetch: direct.fn });
+      const p = router.anonFetch()("https://rpc.example", req);
+      const done = expect(p).rejects.toThrow("socket closed");
+      await vi.advanceTimersByTimeAsync(5_000);
+      await done;
+      expect(router.retryState).toBeNull();
+      expect(router.counter.failed).toBe(3);
+      expect(router.counter.snapshot()["anon-rpc"]).toBe(0);
+      expect(router.counter.snapshot()["direct-approved"]).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("switches back to the preferred network when it answers again, with an event", async () => {
+    vi.useFakeTimers();
+    try {
+      let noxDown = true;
+      const factory = vi.fn(async (init: WorkerInit): Promise<AnonWorkerLike> => {
+        const isNox = init.address === anonNetworks.nox.specifier;
+        return {
+          ready: Promise.resolve(),
+          fetch: async (_i, i2) => {
+            if (isNox && noxDown)
+              throw Object.assign(new Error("no exits available"), { name: "NoTunnelExitError" });
+            return rpcReply(i2?.body);
+          },
+          close: () => {},
+        };
+      });
+      const router = new TransportRouter(on, {
+        workerFactory: factory,
+        fetch: directFetchSpy().fn,
+      });
+      const p = router.anonFetch()("https://rpc.example", req);
+      await vi.advanceTimersByTimeAsync(2_000);
+      await p;
+      expect(router.activeNetwork).toBe("nym");
+      await vi.advanceTimersByTimeAsync(61_000); // first check: Nox still down
+      expect(router.activeNetwork).toBe("nym");
+      noxDown = false;
+      await vi.advanceTimersByTimeAsync(121_000); // second check, two minutes later
+      expect(router.activeNetwork).toBe("nox");
+      expect(router.failovers.map((e) => `${e.kind}:${e.from}→${e.to}`)).toEqual([
+        "failover:nox→nym",
+        "recovered:nym→nox",
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("tests each network without changing the active one", async () => {
+    const factory = vi.fn(async (init: WorkerInit): Promise<AnonWorkerLike> => {
+      const isNym = init.address === anonNetworks.nym.specifier;
+      return {
+        ready: Promise.resolve(),
+        fetch: async (_i, i2) => {
+          if (isNym) throw new Error("gateway refused");
+          return rpcReply(i2?.body);
+        },
+        close: () => {},
+      };
+    });
+    const router = new TransportRouter(on, { workerFactory: factory, fetch: directFetchSpy().fn });
+    const results = await router.testNetworks();
+    expect(results.map((r) => [r.id, r.ok])).toEqual([
+      ["nox", true],
+      ["nym", false],
+    ]);
+    expect(results[1]?.error).toMatch(/gateway refused/);
+    expect(router.activeNetwork).toBe("nox");
+    expect(router.counter.snapshot()["anon-rpc"]).toBe(1);
+    expect(router.counter.failed).toBe(1);
   });
 });

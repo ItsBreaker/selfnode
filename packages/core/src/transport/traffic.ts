@@ -32,6 +32,20 @@ export class TrafficCounter {
   >;
   #listeners = new Set<(s: TrafficSnapshot) => void>();
 
+  #failed = 0;
+
+  /** Requests that never got an answer (failed, aborted, timed out). Not counted under any route. */
+  get failed(): number {
+    return this.#failed;
+  }
+
+  addFailed(calls = 1): void {
+    if (calls <= 0) return;
+    this.#failed += calls;
+    const snap = this.snapshot();
+    for (const l of this.#listeners) l(snap);
+  }
+
   add(route: Route, calls = 1): void {
     if (calls <= 0) return;
     this.#counts[route] += calls;
@@ -56,6 +70,7 @@ export class TrafficCounter {
 
   reset(): void {
     for (const r of ROUTES) this.#counts[r] = 0;
+    this.#failed = 0;
     const snap = this.snapshot();
     for (const l of this.#listeners) l(snap);
   }
@@ -72,14 +87,26 @@ export function countRpcCalls(body: unknown): number {
   }
 }
 
-/** Wrap a fetch so every call through it is counted under `route`. */
+/**
+ * Wrap a fetch so each request is counted under `route` once it was actually
+ * sent and answered. Requests that fail before an answer (no exit, timeout,
+ * aborted) are counted as failed attempts instead, under no route: they didn't
+ * carry traffic anywhere, anonymised or not. Retries inside `inner` count once.
+ */
 export function countingFetch(
   inner: typeof fetch,
   counter: TrafficCounter,
   route: Route,
 ): typeof fetch {
-  return (input, init) => {
-    counter.add(route, countRpcCalls(init?.body));
-    return inner(input, init);
+  return async (input, init) => {
+    const calls = countRpcCalls(init?.body);
+    try {
+      const res = await inner(input, init);
+      counter.add(route, calls);
+      return res;
+    } catch (e) {
+      counter.addFailed(calls);
+      throw e;
+    }
   };
 }

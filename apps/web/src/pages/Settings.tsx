@@ -444,7 +444,7 @@ function SwarmArchive() {
 }
 
 function TrafficSettings() {
-  const { session, total, resetAll } = useTraffic();
+  const { session, total, failed, resetAll } = useTraffic();
   const failover = useFailover();
   const sum = (s: Record<Route, number>) => ROUTES.reduce((n, r) => n + s[r], 0);
   const pct = (s: Record<Route, number>) =>
@@ -513,19 +513,30 @@ function TrafficSettings() {
           </table>
         </div>
         <div className="border-t border-border px-5 py-3 text-small">
+          <span className="font-medium">Failed attempts this session:</span>{" "}
+          <span className="font-mono tabular">{failed}</span>
+          <span className="block text-caption text-muted">
+            Requests that got no answer (timed out, refused, or retried). They aren&apos;t counted
+            under any route above, so they don&apos;t change the shares.
+          </span>
+        </div>
+        <div className="border-t border-border px-5 py-3 text-small">
           <span className="font-medium">Network switches this session:</span>{" "}
           <span className="font-mono tabular">{failover.events.length}</span>
           {failover.events.map((e) => (
             <span key={e.at} className="block text-caption text-muted">
               {new Date(e.at).toLocaleTimeString()}: {anonNetworks[e.from].label} →{" "}
-              {anonNetworks[e.to].label} ({e.reason})
+              {anonNetworks[e.to].label} ({e.kind === "recovered" ? "switched back: " : ""}
+              {e.reason})
             </span>
           ))}
         </div>
         <div className="p-5">
           <Callout title="What's counted">
-            Every JSON-RPC call Selfnode makes, by the route it took; a batched request counts once
-            per call inside it. Counts are stored only in this browser and never sent anywhere.
+            Every JSON-RPC call Selfnode actually sent and got an answer for, by the route it took;
+            a batched request counts once per call inside it. Bootstrap reads are the one-time,
+            disclosed lookups of each network's worker code when it starts. Counts are stored only
+            in this browser and never sent anywhere.
           </Callout>
         </div>
       </Panel>

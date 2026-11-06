@@ -13,38 +13,100 @@ import { publicRpc, type ChainKey } from "../config/chains.js";
 import { heliosUpstreams } from "../config/helios.js";
 import {
   AnonWorkerPool,
+  WorkerCodeChangedError,
   type WorkerCodeChange,
   type WorkerFactory,
   type WorkerPinStore,
 } from "./anon-pool.js";
-import { TransportUnavailableError } from "./errors.js";
+import { InsecureWorkerError, TransportUnavailableError } from "./errors.js";
 import { heliosProviderFactory, type HeliosFactory } from "./helios.js";
 import { HealthTracker, trackedFetch } from "./health.js";
-import { countingFetch, TrafficCounter } from "./traffic.js";
+import { countingFetch, countRpcCalls, TrafficCounter } from "./traffic.js";
 import type { Eip1193Like, TransportSettings } from "./types.js";
 
-/** Anonymity networks are slow to start; Nym's first call took 13 s in Phase 0. */
-export const ANON_TIMEOUT_MS = 45_000;
+/**
+ * viem's own cutoff for one request through an anonymity network. Generous:
+ * the router applies the real limits (first-connect, failover) itself.
+ */
+export const ANON_TIMEOUT_MS = 200_000;
 
 /** A request through the anonymity network taking longer than this counts as a failure for failover. */
 export const FAILOVER_TIMEOUT_MS = 20_000;
+/** With nowhere to switch to, a request may take this long once the network is up. */
+export const SETTLED_TIMEOUT_MS = 45_000;
+/**
+ * How long a request may take while a network is still making its first
+ * connection. Nym's first connection can take a minute or two.
+ */
+export const FIRST_CONNECT_MS: Record<AnonNetworkId, number> = {
+  nox: 60_000,
+  nym: 180_000,
+  "tor-js": 180_000,
+  passthrough: 30_000,
+};
+/** Waits before retrying a read that failed during the first connection (then give up). */
+export const RETRY_BACKOFF_MS: readonly number[] = [1_000, 3_000];
 /** Consecutive failures on one network before switching (some errors switch at once). */
 export const FAILOVER_AFTER_FAILURES = 2;
 /** How long a failure waits for the backup network to be ready before giving up on switching (this time). */
 export const BACKUP_WAIT_MS = 1_500;
+/** After a failover, check the preferred network again after these waits (the last repeats). */
+export const RECOVERY_PROBE_MS: readonly number[] = [60_000, 120_000, 240_000];
 /** Fallback order. Tor is only used if the user configured a gateway. */
 export const FAILOVER_ORDER: readonly AnonNetworkId[] = ["nox", "nym", "tor-js"];
 
 export interface FailoverEvent {
+  /** "failover": moved off a failing network. "recovered": back on the preferred one. */
+  kind: "failover" | "recovered";
   from: AnonNetworkId;
   to: AnonNetworkId;
   reason: string;
   at: number;
 }
 
+/** A read being retried while a network makes its first connection. */
+export interface RetryState {
+  network: AnonNetworkId;
+  /** The attempt now running (2 = first retry). */
+  attempt: number;
+  of: number;
+}
+
+export interface NetworkTestResult {
+  id: AnonNetworkId;
+  ok: boolean;
+  ms: number;
+  error?: string;
+}
+
 /** Errors that mean "this network can't carry traffic right now": switch at once. */
 const HARD_FAILURE =
   /NoTunnelExit|no (tunnel )?exits?|exit (node|unavailable)|tunnel|failed to boot|gateways? failed/i;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const errText = (e: unknown) =>
+  (e instanceof Error ? `${e.name}: ${e.message}` : String(e)).split("\n")[0]?.slice(0, 160) ?? "";
+
+/** Races `p` against a timer that rejects with a FailoverTimeout error. */
+async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      p,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          const err = new Error(`${label} didn't answer within ${Math.round(ms / 1000)} s`);
+          err.name = "FailoverTimeout";
+          reject(err);
+        }, ms);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const CHAIN_ID_BODY = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_chainId", params: [] });
 
 export interface RouterDeps {
   counter?: TrafficCounter;
@@ -69,8 +131,14 @@ export class TransportRouter {
   #active: AnonNetworkId;
   #consecutiveFailures = 0;
   #failovers: FailoverEvent[] = [];
+  /** Networks failover moved off; skipped until the preferred network recovers. */
+  #failedNets = new Set<AnonNetworkId>();
   #failoverListeners = new Set<() => void>();
   #prewarmed = new Set<AnonNetworkId>();
+  #retry: RetryState | null = null;
+  #retryListeners = new Set<() => void>();
+  #probeTimer: ReturnType<typeof setTimeout> | undefined;
+  #probeStep = 0;
 
   constructor(settings: TransportSettings, deps: RouterDeps = {}) {
     this.counter = deps.counter ?? new TrafficCounter();
@@ -102,13 +170,35 @@ export class TransportRouter {
     return () => this.#failoverListeners.delete(l);
   }
 
+  /** A read being retried during a first connection, or null. */
+  get retryState(): RetryState | null {
+    return this.#retry;
+  }
+
+  subscribeRetry(l: () => void): () => void {
+    this.#retryListeners.add(l);
+    return () => this.#retryListeners.delete(l);
+  }
+
+  #setRetry(r: RetryState | null): void {
+    if (r === null && this.#retry === null) return;
+    this.#retry = r;
+    for (const l of this.#retryListeners) l();
+  }
+
   /** Go back to the user's chosen network (restarting its worker). */
   retryPreferred(): void {
     const preferred = this.#settings.anonNetwork;
     if (this.#active === preferred) return;
     this.pool.close(preferred);
+    this.#backTo(preferred);
+  }
+
+  #backTo(preferred: AnonNetworkId): void {
     this.#active = preferred;
+    this.#failedNets.clear();
     this.#consecutiveFailures = 0;
+    this.#stopProbe();
     this.health.reset();
     this.#emitFailover();
   }
@@ -117,16 +207,20 @@ export class TransportRouter {
     for (const l of this.#failoverListeners) l();
   }
 
-  /** Networks failover may use, in order, after the one that failed. */
-  #nextNetwork(after: AnonNetworkId): AnonNetworkId | null {
+  /** Networks failover may use, in order (Tor only with a gateway configured). */
+  #usable(): AnonNetworkId[] {
     const s = this.#settings;
     const order = [s.anonNetwork, ...FAILOVER_ORDER.filter((n) => n !== s.anonNetwork)];
-    const usable = order.filter(
+    return order.filter(
       (n) =>
         anonNetworks[n].kind === "network" &&
-        (n !== "tor-js" || s.anonConfig?.["tor-js"] !== undefined) &&
-        !this.#failovers.some((e) => e.from === n),
+        (n !== "tor-js" || s.anonConfig?.["tor-js"] !== undefined),
     );
+  }
+
+  /** The next network failover may use after the one that failed. */
+  #nextNetwork(after: AnonNetworkId): AnonNetworkId | null {
+    const usable = this.#usable().filter((n) => n === after || !this.#failedNets.has(n));
     const i = usable.indexOf(after);
     return usable[i + 1] ?? null;
   }
@@ -150,7 +244,7 @@ export class TransportRouter {
     if (!bootFailed && !(await this.#backupReady(to))) return false;
     if (id !== this.#active) return true; // another request already switched
     const reason = timedOut
-      ? `no answer within ${FAILOVER_TIMEOUT_MS / 1000} s`
+      ? `no answer within ${(e as Error).message.match(/within (\d+) s/)?.[1] ?? FAILOVER_TIMEOUT_MS / 1000} s`
       : bootFailed
         ? `couldn't start (${(this.pool.status(id).status as { error?: string }).error ?? msg})`.slice(
             0,
@@ -159,11 +253,16 @@ export class TransportRouter {
         : hard
           ? (msg.split("\n")[0]?.slice(0, 160) ?? msg)
           : `${this.#consecutiveFailures} failures in a row`;
-    this.#failovers = [...this.#failovers, { from: id, to, reason, at: Date.now() }];
+    this.#failovers = [
+      ...this.#failovers,
+      { kind: "failover", from: id, to, reason, at: Date.now() },
+    ];
+    this.#failedNets.add(id);
     this.#active = to;
     this.#consecutiveFailures = 0;
     this.health.reset();
     this.#emitFailover();
+    this.#scheduleProbe(true);
     return true;
   }
 
@@ -178,7 +277,7 @@ export class TransportRouter {
       const st = this.pool.status(id).status.state;
       if (st === "ready") return true;
       if (st === "failed") return false;
-      await new Promise((r) => setTimeout(r, 100));
+      await sleep(100);
     }
     return false;
   }
@@ -196,51 +295,168 @@ export class TransportRouter {
     }
   }
 
+  // --- Recovery: back to the preferred network when it works again ----------
+
+  #stopProbe(): void {
+    clearTimeout(this.#probeTimer);
+    this.#probeTimer = undefined;
+    this.#probeStep = 0;
+  }
+
+  #scheduleProbe(restart = false): void {
+    if (restart) this.#stopProbe();
+    if (this.#probeTimer !== undefined) return;
+    const s = this.#settings;
+    if (s.anonFailover === false || this.#active === s.anonNetwork) return;
+    const wait =
+      RECOVERY_PROBE_MS[Math.min(this.#probeStep, RECOVERY_PROBE_MS.length - 1)] ?? 240_000;
+    this.#probeStep++;
+    const t = setTimeout(() => {
+      this.#probeTimer = undefined;
+      void this.#probe();
+    }, wait);
+    (t as { unref?: () => void }).unref?.();
+    this.#probeTimer = t;
+  }
+
+  /** One check of the preferred network (a counted eth_chainId through it). */
+  async #probe(): Promise<void> {
+    const preferred = this.#settings.anonNetwork;
+    if (this.#settings.anonFailover === false || this.#active === preferred) return;
+    const r = await this.#testOne(preferred, true);
+    if (this.#settings.anonNetwork !== preferred || this.#active === preferred) return;
+    if (!r.ok) {
+      this.#scheduleProbe();
+      return;
+    }
+    const from = this.#active;
+    this.#failovers = [
+      ...this.#failovers,
+      {
+        kind: "recovered",
+        from,
+        to: preferred,
+        reason: `${anonNetworks[preferred].label} answered again`,
+        at: Date.now(),
+      },
+    ];
+    this.#backTo(preferred);
+  }
+
+  /**
+   * Send one eth_chainId through `id` (counted as Anon-RPC traffic), without
+   * changing the active network. `fresh` restarts a worker that failed.
+   */
+  async #testOne(id: AnonNetworkId, fresh: boolean): Promise<NetworkTestResult> {
+    const s = this.#settings;
+    const started = Date.now();
+    try {
+      if (fresh && this.pool.status(id).status.state === "failed") this.pool.close(id);
+      const inner = this.pool.fetchFor(id, {
+        config: s.anonConfig?.[id],
+        allowInsecure: s.allowInsecureReferenceWorker === true,
+      });
+      const res = await withTimeout(
+        countingFetch(
+          inner,
+          this.counter,
+          "anon-rpc",
+        )(s.rpcUrl?.[s.chain] ?? publicRpc(s.chain), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: CHAIN_ID_BODY,
+        }),
+        this.pool.status(id).status.state === "ready" ? SETTLED_TIMEOUT_MS : FIRST_CONNECT_MS[id],
+        anonNetworks[id].label,
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const body = (await res.json()) as { result?: string; error?: { message?: string } };
+      if (!body.result) throw new Error(body.error?.message ?? "no result");
+      return { id, ok: true, ms: Date.now() - started };
+    } catch (e) {
+      return { id, ok: false, ms: Date.now() - started, error: errText(e) };
+    }
+  }
+
+  /**
+   * Check every network failover could use, one request each, in parallel.
+   * Doesn't change which network is active.
+   */
+  async testNetworks(onResult?: (r: NetworkTestResult) => void): Promise<NetworkTestResult[]> {
+    return Promise.all(
+      this.#usable().map(async (id) => {
+        const r = await this.#testOne(id, true);
+        onResult?.(r);
+        return r;
+      }),
+    );
+  }
+
   /**
    * A fetch through whichever anonymity network is active, failing over to the
    * next one (never to a direct connection). Reads are retried on the new
-   * network; a broadcast isn't (it may already have been sent), so it fails and
-   * the next one uses the new network.
+   * network, and retried with backoff while a network makes its first
+   * connection; a broadcast isn't (it may already have been sent), so it fails
+   * and the next one uses the new network. Failed attempts are counted as
+   * failed, never as traffic.
    */
   #failoverFetch(): typeof fetch {
     return async (input, init) => {
       const broadcast =
         typeof init?.body === "string" && init.body.includes("eth_sendRawTransaction");
-      for (let attempt = 0; ; attempt++) {
+      let switches = 0;
+      let retries = 0;
+      for (;;) {
         const id = this.#active;
         const s = this.#settings;
         const inner = this.pool.fetchFor(id, {
           config: s.anonConfig?.[id],
           allowInsecure: s.allowInsecureReferenceWorker === true,
         });
-        let timer: ReturnType<typeof setTimeout> | undefined;
-        // The 20 s cutoff only makes sense if there's somewhere to switch to;
-        // otherwise let the request take as long as the transport allows (a slow
-        // network, e.g. Nym booting, still answers eventually).
+        const firstConnect = this.pool.status(id).status.state !== "ready";
+        // The 20 s cutoff only makes sense if there's somewhere to switch to.
+        // While a network makes its first connection it gets longer.
         const canSwitch = s.anonFailover !== false && this.#nextNetwork(id) !== null;
+        const limit = firstConnect
+          ? FIRST_CONNECT_MS[id]
+          : canSwitch
+            ? FAILOVER_TIMEOUT_MS
+            : SETTLED_TIMEOUT_MS;
         try {
-          const res = await Promise.race([
-            inner(input, init),
-            new Promise<never>((_, reject) => {
-              if (!canSwitch) return;
-              timer = setTimeout(() => {
-                const err = new Error(
-                  `${anonNetworks[id].label} didn't answer within ${FAILOVER_TIMEOUT_MS / 1000} s`,
-                );
-                err.name = "FailoverTimeout";
-                reject(err);
-              }, FAILOVER_TIMEOUT_MS);
-            }),
-          ]);
+          const res = await withTimeout(inner(input, init), limit, anonNetworks[id].label);
           this.#consecutiveFailures = 0;
+          if (this.#retry?.network === id) this.#setRetry(null);
           this.#prewarm();
           return res;
         } catch (e) {
           const switched = await this.#noteFailure(id, e);
-          if (switched && !broadcast && attempt < 2) continue;
-          throw e;
-        } finally {
-          clearTimeout(timer);
+          const last = () => {
+            this.#setRetry(null);
+            return e;
+          };
+          if (broadcast) throw last();
+          if (switched) {
+            if (switches++ < 2) {
+              this.counter.addFailed(countRpcCalls(init?.body));
+              retries = 0;
+              continue;
+            }
+            throw last();
+          }
+          // No switch: retry on the same network while it's still connecting.
+          // A refused code change is the user's decision; don't ask again.
+          const final = e instanceof WorkerCodeChangedError || e instanceof InsecureWorkerError;
+          if (firstConnect && !final && retries < RETRY_BACKOFF_MS.length) {
+            this.counter.addFailed(countRpcCalls(init?.body));
+            const wait = RETRY_BACKOFF_MS[retries] ?? 1_000;
+            retries++;
+            this.#setRetry({ network: id, attempt: retries + 1, of: RETRY_BACKOFF_MS.length + 1 });
+            await sleep(wait);
+            // A worker that failed to start is started again for the retry.
+            if (this.pool.status(id).status.state === "failed") this.pool.close(id);
+            continue;
+          }
+          throw last();
         }
       }
     };
@@ -263,7 +479,10 @@ export class TransportRouter {
       this.#active = next.anonNetwork;
       this.#consecutiveFailures = 0;
       this.#failovers = [];
+      this.#failedNets.clear();
       this.#prewarmed.clear();
+      this.#stopProbe();
+      this.#setRetry(null);
       queueMicrotask(() => this.#emitFailover());
     }
     const routeKey = (x: TransportSettings) =>
@@ -313,8 +532,14 @@ export class TransportRouter {
         const p = provider;
         const helios = custom({
           request: async (args) => {
-            this.counter.add("helios-direct");
-            return this.health.track(async () => (await p).request(args));
+            try {
+              const out = await this.health.track(async () => (await p).request(args));
+              this.counter.add("helios-direct");
+              return out;
+            } catch (e) {
+              this.counter.addFailed();
+              throw e;
+            }
           },
         });
         return broadcastViaAnon(helios, this.#anonTransport(chain, false));
@@ -368,7 +593,8 @@ export class TransportRouter {
       ),
       batch: { wait: 16 },
       timeout: ANON_TIMEOUT_MS,
-      retryCount: 1,
+      // The router retries itself (with backoff, or on another network).
+      retryCount: 0,
     });
   }
 }

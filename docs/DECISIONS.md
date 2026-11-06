@@ -678,7 +678,8 @@ Headers`, `Waiting for peers...`) are strings in the shipped 2.2.2 binary;
 - **Where to:** the next network in Nox → Nym → Tor, starting from the user's
   choice. Tor only if a Tor gateway is configured (the public demo gateway is
   down). A network that already failed this session isn't tried again
-  automatically. **Never to a direct connection.**
+  automatically until the preferred network recovers (see "Anon-RPC
+  resilience" below). **Never to a direct connection.**
 - **Reads retry once on the new network; broadcasts don't** (a signed
   transaction may already have gone out), they fail and the next one uses the new
   network.
@@ -696,6 +697,40 @@ Headers`, `Waiting for peers...`) are strings in the shipped 2.2.2 binary;
   (`localStorage["selfnode:debug-fail-networks"] = "nox"`, a test aid that can
   only make a network fail): switched in 0.5 s, Ready via Nym, live blocks, 0
   direct requests; with the setting off it stayed Unavailable.
+
+## Anon-RPC resilience: first connection, retries, switching back (2026-11-07)
+
+- **First-connect timeout per network** (while its worker isn't ready yet): Nox
+  60 s, Nym and Tor 180 s. Once a network is up: 20 s if there's somewhere to
+  switch to, otherwise 45 s. viem's own timeout is raised to 200 s and its
+  retries are off; the router does the retrying.
+- **Retries with backoff:** a read that fails during the first connection is
+  retried on the same network after 1 s, then 3 s (3 attempts in all), and a
+  worker that failed to start is started again for the retry. The indicator
+  shows "Connecting… via Nox · retrying (attempt 2 of 3)", not "Unavailable",
+  until the last attempt fails. A refused worker-code change isn't retried (it's
+  the user's decision). Broadcasts are never retried.
+- **Switching back:** after a failover, the preferred network is checked with
+  one counted `eth_chainId` after 1 min, then 2 min, then every 4 min. When it
+  answers, Selfnode switches back with a notice ("Nox is back: switched back
+  from Nym") and records a "recovered" event. "Try Nox again" stays in the
+  connection menu.
+- **Test connection** (connection menu, Private mode): one `eth_chainId`
+  through each network failover could use, in parallel, with the time or the
+  error for each. It doesn't change the active network. These are real
+  anonymised requests and are counted.
+- **Counting:** a request is counted under its route only when it got an
+  answer. Failed, aborted and timed-out attempts (including the ones retried or
+  moved to another network) are counted separately as "failed attempts" and
+  don't change the shares. Before this, a failed Anon-RPC attempt was counted as
+  Anon-RPC traffic. Bootstrap reads and Helios requests follow the same rule.
+- **Tested:** core unit tests (backoff and attempt numbers, giving up without
+  going direct, switching back after the second check, the connection test,
+  failed vs sent counts) and in the browser: with failover off and Nox forced
+  to fail, the indicator showed attempts 2 and 3 of 3, then Unavailable; with
+  failover on it switched to Nym in 0.6 s and, once Nox was allowed again,
+  switched back after 70 s with the notice; Test connection showed Nox OK in
+  2.9 s and Nym "operation timed out".
 
 ## Stale assets after a deploy (2026-11-06)
 

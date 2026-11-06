@@ -1,4 +1,4 @@
-/** A notice when the anonymity network switches automatically (never to direct). */
+/** A notice when the anonymity network switches automatically (never to direct), or back. */
 import { anonNetworks } from "@selfnode/core";
 import { useEffect, useRef, useState } from "react";
 import { useFailover } from "../state/selfnode";
@@ -12,7 +12,9 @@ export function FailoverNotice() {
       const e = events[events.length - 1];
       if (e)
         setText(
-          `${anonNetworks[e.from].label} unavailable, switched to ${anonNetworks[e.to].label}. Still anonymised; details in the connection menu.`,
+          e.kind === "recovered"
+            ? `${anonNetworks[e.to].label} is back: switched back from ${anonNetworks[e.from].label}.`
+            : `${anonNetworks[e.from].label} unavailable, switched to ${anonNetworks[e.to].label}. Still anonymised; details in the connection menu.`,
         );
     }
     seen.current = events.length;

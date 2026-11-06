@@ -2,9 +2,18 @@
  * The header's connection control: the live mode indicator plus a popover with
  * the route, latency, what this mode hides and doesn't, and a mode switch.
  */
-import { anonNetworks, formatDuration, MODES, ROUTES, type Mode } from "@selfnode/core";
+import {
+  anonNetworks,
+  formatDuration,
+  MODES,
+  ROUTES,
+  type AnonNetworkId,
+  type Mode,
+  type NetworkTestResult,
+} from "@selfnode/core";
 import * as Popover from "@radix-ui/react-popover";
 import { Check, Minus } from "lucide-react";
+import { useState } from "react";
 import { MODE_COPY } from "../content/modes";
 import { useConnection, useFailover, useSelfnode, useTraffic } from "../state/selfnode";
 import { Button } from "../ui/Button";
@@ -17,7 +26,7 @@ export function ConnectionControl() {
   const c = useConnection();
   const failover = useFailover();
   const { settings, setSettings } = useSelfnode();
-  const { session } = useTraffic();
+  const { session, failed } = useTraffic();
   const total = ROUTES.reduce((n, r) => n + session[r], 0);
   const share = total ? Math.round((session["anon-rpc"] / total) * 100) : null;
   const copy = MODE_COPY[settings.mode];
@@ -68,9 +77,30 @@ export function ConnectionControl() {
               <dd className="font-mono text-caption tabular">
                 {share === null ? "no requests yet" : `${share}% of ${total} requests this session`}
               </dd>
+              {failed > 0 && (
+                <>
+                  <dt className="text-muted">Failed attempts</dt>
+                  <dd className="font-mono text-caption tabular">
+                    {failed} (no answer; not counted above)
+                  </dd>
+                </>
+              )}
             </dl>
 
-            {failover.events.length > 0 && (
+            {failover.events.length > 0 && failover.active === settings.anonNetwork && (
+              <p className="text-caption text-muted">
+                Network switches this session:{" "}
+                {failover.events
+                  .map(
+                    (e) =>
+                      `${new Date(e.at).toLocaleTimeString()} ${anonNetworks[e.from].label} → ${anonNetworks[e.to].label}${e.kind === "recovered" ? " (back)" : ""}`,
+                  )
+                  .join(", ")}
+                .
+              </p>
+            )}
+
+            {failover.active !== settings.anonNetwork && (
               <Callout
                 tone="warning"
                 title={`${anonNetworks[settings.anonNetwork].label} unavailable, switched to ${anonNetworks[failover.active].label}`}
@@ -83,7 +113,9 @@ export function ConnectionControl() {
                         {anonNetworks[e.to].label} ({e.reason})
                       </span>
                     ))}
-                    Still anonymised: Selfnode never switches to a direct connection.
+                    Still anonymised: Selfnode never switches to a direct connection. It checks{" "}
+                    {anonNetworks[settings.anonNetwork].label} again every few minutes and switches
+                    back when it answers.
                   </span>
                   {failover.active !== settings.anonNetwork && (
                     <span>
@@ -95,6 +127,8 @@ export function ConnectionControl() {
                 </span>
               </Callout>
             )}
+
+            {settings.mode === "private" && <TestConnection test={failover.test} />}
 
             {c.direct > 0 && (
               <Callout
@@ -155,6 +189,52 @@ function List({ title, items, positive }: { title: string; items: string[]; posi
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/** One eth_chainId through each network failover could use; doesn't switch. */
+function TestConnection({
+  test,
+}: {
+  test: (onResult?: (r: NetworkTestResult) => void) => Promise<NetworkTestResult[]>;
+}) {
+  const [running, setRunning] = useState(false);
+  const [results, setResults] = useState<Partial<Record<AnonNetworkId, NetworkTestResult>>>({});
+  const run = async () => {
+    setRunning(true);
+    setResults({});
+    try {
+      await test((r) => setResults((prev) => ({ ...prev, [r.id]: r })));
+    } finally {
+      setRunning(false);
+    }
+  };
+  const rows = Object.values(results);
+  return (
+    <div className="flex flex-col gap-2">
+      <span>
+        <Button size="sm" busy={running} onClick={() => void run()}>
+          Test connection
+        </Button>
+      </span>
+      {(running || rows.length > 0) && (
+        <ul className="flex flex-col gap-1 text-small" aria-live="polite">
+          {rows.map((r) => (
+            <li key={r.id} className="flex flex-wrap gap-x-2">
+              <span className="font-medium">{anonNetworks[r.id].label}</span>
+              <span className={r.ok ? "text-private" : "text-danger"}>
+                {r.ok ? `OK · ${formatDuration(r.ms)}` : `Failed · ${r.error ?? "no answer"}`}
+              </span>
+            </li>
+          ))}
+          {running && (
+            <li className="text-caption text-muted">
+              Waiting for the others (a first connection can take a minute or two)…
+            </li>
+          )}
+        </ul>
+      )}
     </div>
   );
 }

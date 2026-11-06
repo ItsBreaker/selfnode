@@ -90,12 +90,18 @@ export function bootstrapProvider(
   return {
     async request({ method, params }) {
       const body = JSON.stringify({ jsonrpc: "2.0", id: ++id, method, params: params ?? [] });
-      counter.add(route, countRpcCalls(body));
-      const res = await fetchImpl(url, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body,
-      });
+      let res: Response;
+      try {
+        res = await fetchImpl(url, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body,
+        });
+      } catch (e) {
+        counter.addFailed(countRpcCalls(body));
+        throw e;
+      }
+      counter.add(route, countRpcCalls(body)); // sent and answered
       const json = (await res.json()) as { result?: unknown; error?: { message: string } };
       if (json.error) throw new Error(`bootstrap ${method}: ${json.error.message}`);
       // Lets the pool check the worker hash before the harness acts on it.

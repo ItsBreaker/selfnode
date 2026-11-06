@@ -25,10 +25,12 @@
 | 2:50 | Back to Overview                                                                                    | "Private by default, verifiable when you want it, on your own node when you have one. Open source, MIT."                                                                        |
 
 **If something is slow:** Nox requests take 1–3 s, so pre-warm the pages you'll
-show. If Nox fails, Selfnode switches to Nym, but only once Nym is up (its first
-connection can take a minute or two), and the connection menu explains it. If
-nothing is available, the app shows "Unavailable" and won't fall back to a
-direct connection, which is the point.
+show. Use **Test connection** in the connection menu to check Nox and Nym before
+recording. While a network is still connecting, the indicator shows "retrying
+(attempt n of 3)". If Nox fails, Selfnode switches to Nym, but only once Nym is
+up (its first connection can take a minute or two), and switches back when Nox
+answers again. If nothing is available, the app shows "Unavailable" and won't
+fall back to a direct connection, which is the point.
 
 **Optional extras, if there's time:** the **Privacy** page (what every third
 party learns, per mode), and the Swarm mirror of the app

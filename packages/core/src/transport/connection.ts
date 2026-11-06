@@ -1,7 +1,8 @@
 /**
  * Derive the user-facing connection state. Pure, so the rules are testable:
- * - "starting": the anonymity network is still connecting, or nothing has
- *   answered yet.
+ * - "starting": the anonymity network is still connecting, nothing has
+ *   answered yet, or a read is being retried during the first connection
+ *   (`attempt` says which try).
  * - "failed": the worker failed, or the most recent request failed.
  * - "slow": answers are arriving, but slower than `slowMs` on average.
  * - "ready": otherwise.
@@ -18,6 +19,8 @@ export interface ConnectionInfo {
   problem: string | null;
   latencyMs: number | null;
   direct: number;
+  /** While a read is retried during the first connection: the attempt now running. */
+  attempt: number | null;
 }
 
 export const SLOW_MS = 8_000;
@@ -28,10 +31,15 @@ export function deriveConnection(input: {
   health: HealthSnapshot;
   directCount: number;
   slowMs?: number;
+  /** The router's retry state (Private mode), if a read is being retried. */
+  retry?: { attempt: number } | null;
 }): ConnectionInfo {
-  const { mode, worker, health, directCount, slowMs = SLOW_MS } = input;
-  const base = { latencyMs: health.latencyMs, direct: directCount };
+  const { mode, worker, health, directCount, slowMs = SLOW_MS, retry = null } = input;
+  const base = { latencyMs: health.latencyMs, direct: directCount, attempt: null };
   if (health.fatal) return { ...base, state: "failed", problem: health.fatal };
+  // Retrying isn't "unavailable": the worker may be restarting between tries.
+  if (mode === "private" && retry)
+    return { ...base, state: "starting", problem: null, attempt: retry.attempt };
   if (mode === "private" && worker.state === "failed") {
     return { ...base, state: "failed", problem: worker.error };
   }
