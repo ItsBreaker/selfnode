@@ -7,7 +7,8 @@
     "keys:generate": "tsx keys/generate.ts",
     "fund": "tsx fund-sepolia.ts",
     "arkiv:cost": "tsx arkiv-mirror/cost-probe.ts",
-    "arkiv:mirror": "tsx arkiv-mirror/index.ts"
+    "arkiv:mirror": "tsx arkiv-mirror/index.ts",
+    "swarm:site": "tsx arkiv-mirror/site.ts"
   },
   "dependencies": {
     "@arkiv-network/sdk": "1.0.1",

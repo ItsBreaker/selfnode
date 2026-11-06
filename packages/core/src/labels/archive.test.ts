@@ -103,6 +103,17 @@ describe("loadArchive", () => {
     expect(a.index.signature("0xA9059CBB")?.texts).toEqual(["transfer(address,uint256)"]);
   });
 
+  it("ignores snapshot entities that aren't datasets (the web app's Swarm mirror)", async () => {
+    const f = await fixture();
+    const web = { dataset: "web", swarmRef: "f".repeat(64), sha256: "0".repeat(64), rowCount: 88 };
+    const a = await loadArchive({
+      fetchFn: f.fetchFn,
+      pointersFromArkiv: async () => [...f.pointers, web as unknown as SnapshotPointer],
+    });
+    expect(a.pointers).toBe("arkiv");
+    expect(f.urls.some((u) => u.includes("f".repeat(64)))).toBe(false);
+  });
+
   it("rejects a file whose SHA-256 doesn't match its Arkiv record", async () => {
     const f = await fixture({ tamper: "labels" });
     await expect(

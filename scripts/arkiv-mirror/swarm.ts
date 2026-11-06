@@ -78,3 +78,53 @@ export async function swarmDownload(
     `No gateway served ${reference} with the expected SHA-256: ${failures.join("; ")}`,
   );
 }
+
+/** Upload a tar as a Swarm website collection (index and error document = index.html for SPA routes). */
+export async function swarmUploadSite(
+  tar: Uint8Array,
+): Promise<{ reference: string; tag: string | null }> {
+  const res = await fetch(`${UPLOAD_GATEWAY}/bzz`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-tar",
+      "swarm-collection": "true",
+      "swarm-index-document": "index.html",
+      "swarm-error-document": "index.html",
+    },
+    body: Buffer.from(tar),
+    signal: AbortSignal.timeout(300_000),
+  });
+  const text = await res.text();
+  if (!res.ok)
+    throw new Error(`Swarm site upload failed: HTTP ${res.status} ${text.slice(0, 300)}`);
+  const json = JSON.parse(text) as { reference?: unknown };
+  if (!isRef(json.reference))
+    throw new Error(`Swarm site upload: unexpected response ${text.slice(0, 200)}`);
+  return { reference: json.reference, tag: res.headers.get("swarm-tag") };
+}
+
+/**
+ * A Swarm reference as a CIDv1 (codec swarm-manifest 0xfa, multihash keccak-256
+ * 0x1b), base32: what subdomain gateways like <cid>.bzz.limo expect.
+ */
+export function swarmCid(reference: string): string {
+  if (!isRef(reference)) throw new Error(`Not a Swarm reference: ${reference}`);
+  const bytes = Buffer.concat([
+    Buffer.from([0x01, 0xfa, 0x01, 0x1b, 0x20]),
+    Buffer.from(reference, "hex"),
+  ]);
+  const A = "abcdefghijklmnopqrstuvwxyz234567";
+  let bits = 0;
+  let val = 0;
+  let out = "";
+  for (const b of bytes) {
+    val = ((val << 8) | b) & 0xffff;
+    bits += 8;
+    while (bits >= 5) {
+      out += A[(val >>> (bits - 5)) & 31];
+      bits -= 5;
+    }
+  }
+  if (bits) out += A[(val << (5 - bits)) & 31];
+  return `b${out}`;
+}

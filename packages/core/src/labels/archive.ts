@@ -162,7 +162,9 @@ export async function loadArchive(opts: {
   let from: LoadedArchive["pointers"] = "arkiv";
   let pointerError: string | undefined;
   try {
-    pointers = await opts.pointersFromArkiv();
+    // Only the dataset snapshots: other snapshot entities (e.g. the web app's
+    // Swarm mirror, dataset "web") aren't label data.
+    pointers = (await opts.pointersFromArkiv()).filter((p) => ARCHIVE_DATASETS.includes(p.dataset));
     const missing = ARCHIVE_DATASETS.filter((d) => !pointers.find((p) => p.dataset === d));
     if (missing.length) throw new Error(`no snapshot entity for ${missing.join(", ")}`);
   } catch (e) {
