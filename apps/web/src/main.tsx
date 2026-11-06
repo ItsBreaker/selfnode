@@ -12,6 +12,7 @@ import { createBrowserRouter, Outlet } from "react-router";
 import { RouterProvider } from "react-router/dom";
 import { AppShell } from "./app/AppShell";
 import { NotBuilt } from "./pages/NotBuilt";
+const Node = lazy(() => import("./pages/Node").then((m) => ({ default: m.Node })));
 const TxView = lazy(() => import("./pages/explore/TxView").then((m) => ({ default: m.TxView })));
 const Explore = lazy(() => import("./pages/explore/Explore").then((m) => ({ default: m.Explore })));
 const BlockView = lazy(() =>
@@ -87,7 +88,7 @@ const router = createBrowserRouter([
           { path: "/explore/tx/:hash", element: page(<TxView />) },
           { path: "/explore/block/:number", element: page(<BlockView />) },
           { path: "/swap", element: page(<Swap />) },
-          { path: "/node", element: <NotBuilt title="Node" /> },
+          { path: "/node", element: page(<Node />) },
           { path: "*", element: <NotBuilt title="Not found" /> },
         ],
       },

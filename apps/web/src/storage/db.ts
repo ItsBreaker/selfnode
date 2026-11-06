@@ -4,6 +4,7 @@
  */
 import type { ChainKey, VaultBlob } from "@selfnode/core";
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
+import { desktop } from "../desktop";
 import type { Address, Hex } from "viem";
 
 export interface ActivityItem {
@@ -39,9 +40,35 @@ function db() {
   return dbp;
 }
 
+/**
+ * The vault is already password-encrypted (scrypt + AES-GCM). In the desktop
+ * app it's additionally wrapped with the OS keychain (Electron safeStorage),
+ * so a copied browser profile alone isn't enough to attack it offline.
+ */
+interface WrappedVault {
+  wrapped: string;
+}
+const isWrapped = (v: unknown): v is WrappedVault =>
+  typeof v === "object" && v !== null && "wrapped" in v;
+
 export const vaultStore = {
-  get: async () => (await db()).get("vault", "primary"),
-  put: async (blob: VaultBlob) => void (await db()).put("vault", blob, "primary"),
+  get: async (): Promise<VaultBlob | undefined> => {
+    const v = (await (await db()).get("vault", "primary")) as VaultBlob | WrappedVault | undefined;
+    if (!v) return undefined;
+    if (!isWrapped(v)) return v;
+    if (!desktop)
+      throw new Error(
+        "This wallet was created in the desktop app and is protected by its OS keychain",
+      );
+    return JSON.parse(await desktop.vault.unwrap(v.wrapped)) as VaultBlob;
+  },
+  put: async (blob: VaultBlob) => {
+    const value =
+      desktop && (await desktop.vault.available())
+        ? { wrapped: await desktop.vault.wrap(JSON.stringify(blob)) }
+        : blob;
+    await (await db()).put("vault", value as VaultBlob, "primary");
+  },
   clear: async () => void (await db()).delete("vault", "primary"),
 };
 
