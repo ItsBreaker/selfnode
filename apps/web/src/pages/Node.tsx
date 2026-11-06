@@ -40,17 +40,17 @@ function DownloadPage() {
             <p>
               Builds for macOS (Apple Silicon and Intel; the node manager needs Apple Silicon) and
               Windows x64. They're unsigned. The node manager is Sepolia-only. On Windows it stops
-              the clients with a real Ctrl+C, so they shut down cleanly; that's tested in CI on
-              every change.
+              the clients with a real Ctrl+C, so they shut down cleanly; that's tested in CI
+              whenever the node code changes and for every release.
             </p>
             <p>
               <a
                 className="font-medium underline underline-offset-2"
-                href="https://github.com/ItsBreaker/selfnode/releases/tag/v0.1.1-hackathon"
+                href="https://github.com/ItsBreaker/selfnode/releases/tag/v0.1.2-hackathon"
                 target="_blank"
                 rel="noreferrer noopener"
               >
-                Download v0.1.1-hackathon (pre-release)
+                Download v0.1.2-hackathon (pre-release)
               </a>{" "}
               for macOS (.dmg) or Windows (.exe), with{" "}
               <span className="font-mono">SHA256SUMS.txt</span>.

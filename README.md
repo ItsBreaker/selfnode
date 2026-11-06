@@ -6,7 +6,7 @@ are, and nothing depends on Infura's, Etherscan's or Uniswap's servers.**
 
 **Live:** [selfnode.jhfe.workers.dev](https://selfnode.jhfe.workers.dev/) (Sepolia
 wallet and swap; mainnet read-only). **Desktop:**
-[v0.1.1-hackathon](https://github.com/ItsBreaker/selfnode/releases/tag/v0.1.1-hackathon)
+[v0.1.2-hackathon](https://github.com/ItsBreaker/selfnode/releases/tag/v0.1.2-hackathon)
 (macOS and Windows, unsigned). **Swarm mirror:**
 [bah5acgzaioxjlpv….bzz.limo](https://bah5acgzaioxjlpvswpkqqryu7ed5ylkw7ajxcadarxiignu44j2u2agvkykq.bzz.limo/) (the same build, served from Swarm;
 [details](arkiv/swarm.md#the-web-app-on-swarm)). Built at ETHGlobal Mumbai (November 2026).
@@ -104,7 +104,7 @@ Ethereum's client diversity.
   on Windows and macOS and asserts a clean exit every time.
 
 **Download:
-[v0.1.1-hackathon pre-release](https://github.com/ItsBreaker/selfnode/releases/tag/v0.1.1-hackathon)**:
+[v0.1.2-hackathon pre-release](https://github.com/ItsBreaker/selfnode/releases/tag/v0.1.2-hackathon)**:
 universal macOS `.dmg` and Windows `.exe`, unsigned, with `SHA256SUMS.txt` and
 instructions for opening unsigned apps. Builds come from
 [the desktop workflow](.github/workflows/desktop.yml). Run locally with
