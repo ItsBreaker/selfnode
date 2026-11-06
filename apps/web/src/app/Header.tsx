@@ -21,8 +21,12 @@ export function Header({
   return (
     <header className="border-b border-border bg-bg">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:gap-5 sm:px-5">
-        <NavLink to="/" className="shrink-0" aria-label="Selfnode overview">
-          <Wordmark />
+        <NavLink
+          to="/"
+          className="inline-flex min-h-11 min-w-11 shrink-0 items-center"
+          aria-label="Selfnode overview"
+        >
+          <Wordmark compact />
         </NavLink>
         <nav aria-label="Main" className="hidden items-center gap-0.5 lg:flex">
           {NAV.map((n) => (

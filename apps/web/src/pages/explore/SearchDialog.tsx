@@ -57,7 +57,7 @@ export function SearchForm({ onDone, autoFocus }: { onDone?: () => void; autoFoc
           autoFocus={autoFocus}
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Address, transaction hash, block number or ENS name"
+          placeholder="Address, tx hash, block or ENS name"
           autoComplete="off"
           spellCheck={false}
           className="h-11 w-full bg-transparent font-mono text-small outline-none placeholder:font-sans placeholder:text-muted"

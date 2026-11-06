@@ -482,7 +482,7 @@ function SwapSepolia() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[420px] text-left text-small">
+              <table className="w-full text-left text-small sm:min-w-[420px]">
                 <thead>
                   <tr className="border-b border-border text-caption uppercase tracking-[0.06em] text-muted">
                     <th scope="col" className="px-5 py-2.5 font-medium">
@@ -502,7 +502,7 @@ function SwapSepolia() {
                       <td className="px-5 py-3">
                         {feePct(q.key.fee)} {i === 0 && <Badge tone="verified">Best</Badge>}
                       </td>
-                      <td className="px-2 py-3 text-right font-mono tabular">
+                      <td className="px-2 py-3 text-right font-mono tabular whitespace-nowrap">
                         {fmt(q.amountOut, tOut.decimals)} {tOut.symbol}
                       </td>
                       <td className="px-5 py-3 text-right font-mono tabular">

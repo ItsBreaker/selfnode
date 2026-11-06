@@ -326,7 +326,7 @@ function PreviewView({ preview }: { preview: SendPreview }) {
   const sim = preview.simulation;
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-lead font-medium">{preview.summary}</p>
+      <p className="text-lead font-medium [overflow-wrap:anywhere]">{preview.summary}</p>
       <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 rounded-md border border-border bg-sunken p-4 text-small">
         <dt className="text-muted">Recipient</dt>
         <dd className="flex flex-wrap items-center gap-2">

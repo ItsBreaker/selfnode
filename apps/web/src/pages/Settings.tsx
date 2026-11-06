@@ -385,19 +385,19 @@ function TrafficSettings() {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] text-left text-small">
+          <table className="w-full text-left text-small sm:min-w-[560px]">
             <thead>
               <tr className="border-b border-border text-caption uppercase tracking-[0.06em] text-muted">
-                <th scope="col" className="px-5 py-2.5 font-medium">
+                <th scope="col" className="px-4 py-2.5 font-medium sm:px-5">
                   Route
                 </th>
-                <th scope="col" className="px-2 py-2.5 font-medium">
+                <th scope="col" className="hidden px-2 py-2.5 font-medium sm:table-cell">
                   Anonymised
                 </th>
                 <th scope="col" className="px-2 py-2.5 text-right font-medium">
                   Session
                 </th>
-                <th scope="col" className="px-5 py-2.5 text-right font-medium">
+                <th scope="col" className="px-5 py-2.5 whitespace-nowrap text-right font-medium">
                   All time
                 </th>
               </tr>
@@ -405,11 +405,16 @@ function TrafficSettings() {
             <tbody className="divide-y divide-border">
               {ROUTES.map((r) => (
                 <tr key={r}>
-                  <td className="px-5 py-3">
+                  <td className="px-4 py-3 sm:px-5">
                     <p className="font-medium">{ROUTE_INFO[r].label}</p>
                     <p className="text-caption text-muted">{ROUTE_INFO[r].note}</p>
+                    <p className="text-caption font-medium sm:hidden">
+                      {ROUTE_INFO[r].anonymised ? "Anonymised" : "Not anonymised"}
+                    </p>
                   </td>
-                  <td className="px-2 py-3">{ROUTE_INFO[r].anonymised ? "Yes" : "No"}</td>
+                  <td className="hidden px-2 py-3 sm:table-cell">
+                    {ROUTE_INFO[r].anonymised ? "Yes" : "No"}
+                  </td>
                   <td className="px-2 py-3 text-right font-mono tabular">{session[r]}</td>
                   <td className="px-5 py-3 text-right font-mono tabular">{total[r]}</td>
                 </tr>
