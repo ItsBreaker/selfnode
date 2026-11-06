@@ -392,6 +392,7 @@ describe("anonymity-network failover (never to direct)", () => {
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_chainId" }),
       });
       await vi.advanceTimersByTimeAsync(20_001);
+      await vi.advanceTimersByTimeAsync(2_000); // the short wait for the backup to be ready
       await expect(p).resolves.toBeInstanceOf(Response);
       expect(router.failovers[0]).toMatchObject({
         from: "nox",
@@ -442,6 +443,37 @@ describe("anonymity-network failover (never to direct)", () => {
     expect(router.counter.snapshot()["direct-approved"]).toBe(0);
     for (const call of (direct.fn as unknown as ReturnType<typeof vi.fn>).mock.calls)
       expect(String((call[1] as RequestInit | undefined)?.body)).toContain("eth_call");
+  });
+
+  it("on a transient error, stays put if the backup isn't up yet (no switch to a booting network)", async () => {
+    let releaseNym: (() => void) | undefined;
+    const factory = vi.fn(async (init: WorkerInit): Promise<AnonWorkerLike> => {
+      const isNox = init.address === anonNetworks.nox.specifier;
+      return {
+        // Nym takes "minutes" to boot here.
+        ready: isNox ? Promise.resolve() : new Promise<void>((r) => (releaseNym = r)),
+        fetch: async (_i, i2) => {
+          if (isNox)
+            throw Object.assign(new Error("The tunnel exit did not answer"), {
+              name: "TunnelOpenTimeoutError",
+            });
+          return rpcReply(i2?.body);
+        },
+        close: () => {},
+      };
+    });
+    const router = new TransportRouter(on, { workerFactory: factory, fetch: directFetchSpy().fn });
+    const f = router.anonFetch();
+    const req = {
+      method: "POST",
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_chainId" }),
+    };
+    await expect(f("https://rpc.example", req)).rejects.toThrow(/tunnel exit/);
+    expect(router.activeNetwork).toBe("nox"); // Nym was started, but isn't ready
+    releaseNym?.();
+    await new Promise((r) => setTimeout(r, 10));
+    await expect(f("https://rpc.example", req)).resolves.toBeInstanceOf(Response);
+    expect(router.activeNetwork).toBe("nym"); // now it's up, the next failure switches
   });
 
   it("uses Tor only when a gateway is configured", async () => {

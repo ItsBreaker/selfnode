@@ -30,6 +30,8 @@ export const ANON_TIMEOUT_MS = 45_000;
 export const FAILOVER_TIMEOUT_MS = 20_000;
 /** Consecutive failures on one network before switching (some errors switch at once). */
 export const FAILOVER_AFTER_FAILURES = 2;
+/** How long a failure waits for the backup network to be ready before giving up on switching (this time). */
+export const BACKUP_WAIT_MS = 1_500;
 /** Fallback order. Tor is only used if the user configured a gateway. */
 export const FAILOVER_ORDER: readonly AnonNetworkId[] = ["nox", "nym", "tor-js"];
 
@@ -129,8 +131,13 @@ export class TransportRouter {
     return usable[i + 1] ?? null;
   }
 
-  /** Record a failure on `id`; switch networks if warranted. Returns true if it switched. */
-  #noteFailure(id: AnonNetworkId, e: unknown): boolean {
+  /**
+   * Record a failure on `id`; switch networks if warranted. Returns true if it
+   * switched. A transient failure only switches to a backup that's already up
+   * (starting it if needed, waiting up to BACKUP_WAIT_MS): moving to a network
+   * that's still booting (Nym can take minutes) is worse than retrying.
+   */
+  async #noteFailure(id: AnonNetworkId, e: unknown): Promise<boolean> {
     if (this.#settings.anonFailover === false || id !== this.#active) return false;
     const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
     const timedOut = e instanceof Error && e.name === "FailoverTimeout";
@@ -140,6 +147,8 @@ export class TransportRouter {
     if (!hard && this.#consecutiveFailures < FAILOVER_AFTER_FAILURES) return false;
     const to = this.#nextNetwork(id);
     if (!to) return false;
+    if (!bootFailed && !(await this.#backupReady(to))) return false;
+    if (id !== this.#active) return true; // another request already switched
     const reason = timedOut
       ? `no answer within ${FAILOVER_TIMEOUT_MS / 1000} s`
       : bootFailed
@@ -156,6 +165,22 @@ export class TransportRouter {
     this.health.reset();
     this.#emitFailover();
     return true;
+  }
+
+  /** Start `id`'s worker if needed and wait briefly for it to be ready. */
+  async #backupReady(id: AnonNetworkId): Promise<boolean> {
+    try {
+      this.pool.fetchFor(id, { config: this.#settings.anonConfig?.[id] });
+    } catch {
+      return false;
+    }
+    for (let t = 0; t <= BACKUP_WAIT_MS; t += 100) {
+      const st = this.pool.status(id).status.state;
+      if (st === "ready") return true;
+      if (st === "failed") return false;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return false;
   }
 
   /** Start the next network's worker in the background, so a failover is quick. */
@@ -211,7 +236,7 @@ export class TransportRouter {
           this.#prewarm();
           return res;
         } catch (e) {
-          const switched = this.#noteFailure(id, e);
+          const switched = await this.#noteFailure(id, e);
           if (switched && !broadcast && attempt < 2) continue;
           throw e;
         } finally {

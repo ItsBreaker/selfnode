@@ -1,8 +1,9 @@
 import { chains, type ChainKey } from "@selfnode/core";
 import { AlertTriangle } from "lucide-react";
 import { Link } from "react-router";
+import { useQuery } from "@tanstack/react-query";
 import { labelUrl, useLabel } from "../state/labels";
-import { useSelfnode } from "../state/selfnode";
+import { usePublicClient, useRouteKey, useSelfnode } from "../state/selfnode";
 import { Address } from "./Address";
 import { Tooltip } from "./Tooltip";
 
@@ -14,14 +15,18 @@ export function LabeledAddress({
   address,
   chain,
   link = true,
+  ens = false,
 }: {
   address: string;
   chain?: ChainKey;
   link?: boolean;
+  /** Also try the address's ENS name (reverse record) when there's no label. One cached lookup. */
+  ens?: boolean;
 }) {
   const { settings } = useSelfnode();
   const chainKey = chain ?? settings.chain;
   const { data: label } = useLabel(chains[chainKey].id, address);
+  const ensName = useEnsName(ens && !label ? address : null);
   const inner = (
     <Address
       address={address}
@@ -34,7 +39,9 @@ export function LabeledAddress({
               fromArkiv: true,
               ...(label.via ? { via: label.via } : {}),
             }
-          : undefined
+          : ensName.data
+            ? { name: ensName.data, source: "ENS reverse record", fromArkiv: false }
+            : undefined
       }
     />
   );
@@ -71,4 +78,18 @@ export function LabeledAddress({
       )}
     </span>
   );
+}
+
+/** The address's primary ENS name, through the active route; null if none. Cached for an hour. */
+function useEnsName(address: string | null) {
+  const client = usePublicClient();
+  const routeKey = useRouteKey();
+  return useQuery({
+    enabled: !!address,
+    queryKey: ["ens-name", routeKey, address?.toLowerCase()],
+    queryFn: async () =>
+      (await client.getEnsName({ address: address as `0x${string}` }).catch(() => null)) ?? null,
+    staleTime: 3600_000,
+    retry: false,
+  });
 }

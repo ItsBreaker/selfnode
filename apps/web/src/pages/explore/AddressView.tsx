@@ -7,6 +7,7 @@ import { labelUrl, useLabel } from "../../state/labels";
 import { usePublicClient, useRouteKey, useSelfnode } from "../../state/selfnode";
 import { Amount } from "../../ui/Amount";
 import { Badge } from "../../ui/Badge";
+import { AddressActivity } from "./AddressActivity";
 import { Callout } from "../../ui/Callout";
 import { LabeledAddress } from "../../ui/LabeledAddress";
 import { Panel } from "../../ui/Panel";
@@ -92,7 +93,7 @@ export function AddressView() {
             before interacting with this address.
           </Callout>
         )}
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid gap-5">
           <Panel title={`State on ${chain.name}`}>
             {state.isPending ? (
               <Skeleton className="h-20 w-full" />
@@ -135,14 +136,8 @@ export function AddressView() {
               </dl>
             )}
           </Panel>
-          <Panel title="History">
-            <Callout title="Full history needs an archive node or an indexer">
-              A standard RPC can't list an address's past transactions, and Selfnode doesn't run an
-              indexer in this build, so it shows current state rather than guessing. Search a
-              transaction hash or block number to inspect them.
-            </Callout>
-          </Panel>
         </div>
+        <AddressActivity address={address} />
       </div>
     </Page>
   );
