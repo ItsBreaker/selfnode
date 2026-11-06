@@ -10,6 +10,24 @@ wallet and swap; mainnet read-only). **Desktop:**
 (macOS and Windows, unsigned). Built at ETHGlobal Mumbai (November 2026).
 MIT licensed.
 
+## Screenshots
+
+Live site, Private mode (every request through Nox), Sepolia.
+
+| Wallet: plain-English preview before signing                             | Swap: Uniswap v4 quotes from the on-chain Quoter            |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| ![Wallet send preview, light](docs/screenshots/wallet-light-desktop.png) | ![Swap quote, dark](docs/screenshots/swap-dark-desktop.png) |
+
+<p>
+  <img src="docs/screenshots/overview-light-mobile.png" width="190" alt="Overview on a phone, light theme">
+  <img src="docs/screenshots/wallet-dark-mobile.png" width="190" alt="Send preview on a phone, dark theme">
+  <img src="docs/screenshots/swap-light-mobile.png" width="190" alt="Swap on a phone, light theme">
+  <img src="docs/screenshots/transaction-dark-mobile.png" width="190" alt="Decoded transaction on a phone, dark theme, with the function name from Arkiv">
+</p>
+
+All 16 (overview, wallet, swap and a decoded transaction; light and dark;
+desktop and mobile) are in [`docs/screenshots/`](docs/screenshots/).
+
 ## What works today
 
 | Feature                                                                                                                                                        | Status                                                                                   |
