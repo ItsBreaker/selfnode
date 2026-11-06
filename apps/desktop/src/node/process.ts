@@ -121,7 +121,7 @@ const psArgs = (script: string) => [
 ];
 
 /** Quote one argument for Start-Process -ArgumentList (a single Windows command line). */
-function winQuote(a: string): string {
+export function winQuote(a: string): string {
   if (a !== "" && !/[\s"]/.test(a)) return a;
   return `"${a.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/, "$1$1")}"`;
 }
