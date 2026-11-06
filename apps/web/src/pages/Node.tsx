@@ -44,14 +44,14 @@ function DownloadPage() {
             <p>
               <a
                 className="font-medium underline underline-offset-2"
-                href="https://github.com/ItsBreaker/selfnode/actions/workflows/desktop.yml"
+                href="https://github.com/ItsBreaker/selfnode/releases/tag/v0.1.0-hackathon"
                 target="_blank"
                 rel="noreferrer noopener"
               >
-                Latest desktop builds on GitHub Actions
+                Download v0.1.0-hackathon (pre-release)
               </a>{" "}
-              (download the artifact, which includes a{" "}
-              <span className="font-mono">SHA256SUMS.txt</span>).
+              for macOS (.dmg) or Windows (.exe), with{" "}
+              <span className="font-mono">SHA256SUMS.txt</span>.
             </p>
             <p className="text-muted">Verify the download before opening it:</p>
             <pre className="overflow-x-auto rounded-sm bg-sunken p-3 font-mono text-caption">{`# macOS\nshasum -a 256 Selfnode-*.dmg\n# Windows (PowerShell)\nGet-FileHash .\\Selfnode-*.exe -Algorithm SHA256`}</pre>

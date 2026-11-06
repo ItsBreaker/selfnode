@@ -5,7 +5,9 @@ goes through an anonymity network by default, so no RPC provider learns who you
 are, and nothing depends on Infura's, Etherscan's or Uniswap's servers.**
 
 **Live:** [selfnode.jhfe.workers.dev](https://selfnode.jhfe.workers.dev/) (Sepolia
-wallet and swap; mainnet read-only). Built at ETHGlobal Mumbai (November 2026).
+wallet and swap; mainnet read-only). **Desktop:**
+[v0.1.0-hackathon](https://github.com/ItsBreaker/selfnode/releases/tag/v0.1.0-hackathon)
+(macOS and Windows, unsigned). Built at ETHGlobal Mumbai (November 2026).
 MIT licensed.
 
 ## What works today
@@ -71,7 +73,10 @@ Ethereum's client diversity.
   (`admin_pauseBlockProcessing`), but Nimbus, or an unfinished first sync, can be
   cut off mid-write and may need a resync.
 
-Unsigned builds (universal `.dmg`, NSIS `.exe`) with `SHA256SUMS.txt` come from
+**Download:
+[v0.1.0-hackathon pre-release](https://github.com/ItsBreaker/selfnode/releases/tag/v0.1.0-hackathon)**:
+universal macOS `.dmg` and Windows `.exe`, unsigned, with `SHA256SUMS.txt` and
+instructions for opening unsigned apps. Builds come from
 [the desktop workflow](.github/workflows/desktop.yml). Run locally with
 `pnpm --filter @selfnode/desktop start`.
 
