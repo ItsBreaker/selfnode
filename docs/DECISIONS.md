@@ -615,3 +615,33 @@ Headers`, `Waiting for peers...`) are strings in the shipped 2.2.2 binary;
 - **Not released:** in `main` for the **next desktop build**; v0.1.1-hackathon
   doesn't have it. The exact log layouts beyond these markers should be checked
   against a live node's Logs panel when that build is made.
+
+## Anon-RPC bootstrap hardening (2026-11-06)
+
+- **Worker code pinning (trust on first use).** The harness reads the
+  specifier's `workerHash()` through our bootstrap provider, then only runs a
+  bundle whose keccak-256 matches it. The provider now inspects that result
+  before handing it back: after the first successful boot the hash is stored per
+  network (`localStorage`, `selfnode:worker-pins`). On later boots a different
+  hash pauses the boot and asks: "The anonymity network's code changed since you
+  last used it", showing the old and new hash and the specifier. **Use the new
+  code** re-pins after the worker boots; **Cancel** (the default focus, also on
+  Escape or closing the dialog) fails the boot with a clear error, keeps the old
+  pin, and nothing falls back to a direct connection. Without a dialog handler
+  (e.g. in core tests) a change is always refused.
+- **What this does and doesn't protect against:** a changed specifier (an
+  upgrade, or a compromised or impersonated contract or bootstrap RPC) can no
+  longer swap the code silently on a device that has used the network before.
+  A first-ever boot still trusts the hash it's given.
+- **Bootstrap through your own node.** In My node mode the specifier read goes to
+  the user's node for the specifier's chain (Sepolia for Nox), counted as "Your
+  node", so the public bootstrap RPC isn't contacted. For Nym and Tor (specifier
+  on Ethereum) with a Sepolia-only node it's still the disclosed public read.
+  When the desktop node becomes synced and the app switches to My node mode, the
+  next boot uses the node; an already-running worker isn't restarted. If the
+  node can't answer, the boot fails visibly: no silent switch to the public
+  bootstrap RPC.
+- **Tests:** pin on first boot, refuse without consent, ask then re-pin only on
+  accept, no prompt when unchanged, node route vs public route. Verified in the
+  browser against the real Nox specifier: fresh pin, Cancel (connection
+  "Unavailable" with the reason, pin kept), and Accept (ready, re-pinned).

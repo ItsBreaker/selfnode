@@ -150,13 +150,13 @@ all time.
 
 Every exception, and why:
 
-| Route                                | Why it isn't anonymised                                                                                                                                                                              |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Bootstrap read                       | Starting an anonymity network needs one read of its on-chain specifier (worker hash and resolvers) before the network exists. 2 calls per session.                                                   |
-| Helios upstream (Verified mode only) | Helios accepts URLs, not a `fetch` function, so it can't use Anon-RPC. It's a separate mode the user chooses, labelled "Helios · direct".                                                            |
-| Your node (My node mode only)        | Reads go to your own node. Broadcasts still use Anon-RPC.                                                                                                                                            |
-| Direct, approved by you              | A one-off request the user explicitly confirmed, counted separately.                                                                                                                                 |
-| Swarm archive (opt-in)               | Only if the user clicks "Load labels from the Swarm archive": three public snapshot files from the bzz.limo gateway, SHA-256-checked against Arkiv. Plain downloads, not RPC, so not in the counter. |
+| Route                                | Why it isn't anonymised                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bootstrap read                       | Starting an anonymity network needs one read of its on-chain specifier (worker hash and resolvers) before the network exists. 2 calls per session. In My node mode it goes to your own node instead (when it's on the specifier's chain: Sepolia for Nox). The worker hash is pinned per network; a change stops and asks before the new code runs. |
+| Helios upstream (Verified mode only) | Helios accepts URLs, not a `fetch` function, so it can't use Anon-RPC. It's a separate mode the user chooses, labelled "Helios · direct".                                                                                                                                                                                                           |
+| Your node (My node mode only)        | Reads go to your own node. Broadcasts still use Anon-RPC.                                                                                                                                                                                                                                                                                           |
+| Direct, approved by you              | A one-off request the user explicitly confirmed, counted separately.                                                                                                                                                                                                                                                                                |
+| Swarm archive (opt-in)               | Only if the user clicks "Load labels from the Swarm archive": three public snapshot files from the bzz.limo gateway, SHA-256-checked against Arkiv. Plain downloads, not RPC, so not in the counter.                                                                                                                                                |
 
 ## CROPS
 
@@ -180,7 +180,7 @@ Every exception, and why:
 - MIT licence. Pinned exact dependency versions with a committed lockfile.
 - Dependency install scripts are blocked except `esbuild`, and pnpm's
   minimum-release-age policy applies with no exceptions.
-- CI runs typecheck, lint, format, 157 tests and gitleaks on every push, plus macOS and Windows desktop builds.
+- CI runs typecheck, lint, format, 164 tests and gitleaks on every push, plus macOS and Windows desktop builds.
 - Builds with `pnpm install && pnpm --filter @selfnode/web build`.
 
 **Privacy**

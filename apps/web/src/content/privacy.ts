@@ -43,7 +43,8 @@ export const PARTIES: Party[] = [
       private:
         "Your IP address and that you're starting this anonymity network: one read of the specifier contract's worker hash and resolvers. Nothing about your addresses. This read isn't anonymised, because the anonymity network doesn't exist yet.",
       verified: "The same single read (the network is still used for broadcasts).",
-      mynode: "The same single read (the network is still used for broadcasts).",
+      mynode:
+        "Nothing, if your node is on the specifier's chain (Sepolia for Nox): the read goes to your own node instead. Otherwise (e.g. Nym or Tor, whose specifier is on Ethereum, with a Sepolia-only node) the same single public read.",
     },
   },
   {
@@ -140,7 +141,7 @@ export const EXCEPTIONS: { title: string; detail: string }[] = [
   {
     title: "The bootstrap read",
     detail:
-      'Starting an anonymity network needs one direct read of its on-chain specifier (worker hash and resolvers). It\'s counted as "Bootstrap read" in the traffic counter.',
+      'Starting an anonymity network needs one direct read of its on-chain specifier (worker hash and resolvers). It\'s counted as "Bootstrap read" in the traffic counter. In My node mode it goes to your own node when that node is on the specifier\'s chain, and is counted as "Your node".',
   },
   {
     title: "Verified mode",
@@ -167,7 +168,7 @@ export const TRUST_POINTS: { title: string; detail: string }[] = [
   {
     title: "The specifier contract",
     detail:
-      "The anonymity network's code is identified by a hash stored on-chain. You trust whoever controls that contract, and the bootstrap provider to report the hash honestly. Anyone can rebuild the published bundle and check the hash.",
+      "The anonymity network's code is identified by a hash stored on-chain. You trust whoever controls that contract, and the bootstrap provider to report the hash honestly. Anyone can rebuild the published bundle and check the hash. Selfnode remembers the hash each network used on this device; if it changes, it stops and asks before running the new code, and connects nowhere if you decline.",
   },
   {
     title: "The anonymity network's worker",
