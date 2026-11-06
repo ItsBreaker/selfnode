@@ -52,7 +52,7 @@ export const PARTIES: Party[] = [
     status: "live",
     learns: {
       private:
-        "Nothing, unless you load the archive. Then: your IP address and that you downloaded Selfnode's label archive (three public snapshot files, about 2.6 MB), once per session. Not anonymised: the anonymity network only carries JSON-RPC. Nothing about your own addresses. Files are used only if their SHA-256 matches the one recorded on Arkiv.",
+        "Nothing, unless you load the archive. Then: your IP address and that you downloaded Selfnode's label archive (three public snapshot files, about 2.7 MB), once per session. Not anonymised: the anonymity network only carries JSON-RPC. Nothing about your own addresses. Files are used only if their SHA-256 matches the one recorded on Arkiv.",
       verified: "The same: nothing unless you load the archive.",
       mynode: "The same: nothing unless you load the archive.",
     },

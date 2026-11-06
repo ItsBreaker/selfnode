@@ -371,7 +371,7 @@ function SwarmArchive() {
             Arkiv one address at a time, and keeps labels working if Arkiv is unreachable.
           </p>
           <Callout tone="warning" title="The Swarm gateway sees your IP address">
-            The snapshots (about 2.6 MB) are downloaded directly from the bzz.limo public gateway,
+            The snapshots (about 2.7 MB) are downloaded directly from the bzz.limo public gateway,
             not through the anonymity network, so the gateway learns your IP address and that you
             downloaded Selfnode&apos;s label archive. Nothing about your own addresses is sent. Each
             file is used only if its SHA-256 matches the one recorded on Arkiv (or, if Arkiv

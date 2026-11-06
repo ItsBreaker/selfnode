@@ -185,6 +185,26 @@ $ pnpm --filter @selfnode/scripts arkiv:mirror --from-swarm --dry-run --only sig
   downloaded from https://api.gateway.ethswarm.org: 297.9 KiB, sha256 matches the entity
 ```
 
+## In the app: "Load labels from the Swarm archive" (opt-in)
+
+Settings → **Swarm archive**. Off by default, never automatic, never remembered:
+one click downloads the three snapshots (about 2.7 MB) straight from bzz.limo
+for this session. A warning above the button says the gateway sees your IP
+address, because Anon-RPC only carries JSON-RPC. The Privacy page lists it as a
+party and an exception.
+
+The expected SHA-256s come from the `selfnode-snapshot` entities on Arkiv, read
+through Anon-RPC. If Arkiv can't be reached, the app uses the pointers pinned in
+the build and says why. A file is used only if its hash, format, dataset, owner
+and row count all check out. Once loaded, the archive answers label and
+function-name lookups first (shown as "from the Swarm archive"); anything it
+doesn't have still goes to Arkiv. Code:
+[`packages/core/src/labels/archive.ts`](../packages/core/src/labels/archive.ts)
+(tests in `archive.test.ts`, live check in `archive.live.test.ts`) and
+[`apps/web/src/state/labels.tsx`](../apps/web/src/state/labels.tsx). Verified on
+the live site: no gateway request before the click, three verified downloads
+after it, and decoded calls attributed to the archive.
+
 ## Demo video
 
 Swarm segment at **[TIMESTAMP: to be added after recording]**.
@@ -213,5 +233,7 @@ Swarm segment at **[TIMESTAMP: to be added after recording]**.
   via `npx` from `/tmp` for the feasibility test, then used plain `fetch` in the
   repo.
 - **Privacy:** reading from a gateway reveals the reader's IP to it. Anon-RPC
-  only carries JSON-RPC, so a browser can't fetch Swarm content through it. That's
-  why the web app doesn't read from Swarm automatically.
+  only carries JSON-RPC, so a browser can't fetch Swarm content through it.
+  That's why the app's archive download is opt-in and comes with a warning,
+  never automatic. A way to fetch Swarm content over a mixnet would remove that
+  trade-off.
