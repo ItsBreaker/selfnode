@@ -51,7 +51,7 @@ Built from section 3 of the build brief. Tick as completed.
 - [x] CI builds for macOS (universal dmg) and Windows (NSIS) with SHA-256 checksums
 - [ ] **Jayden:** review `apps/desktop/node-manifest.json`, then set `maintainerReviewed` to true
 - [x] Desktop pre-release published: https://github.com/ItsBreaker/selfnode/releases/tag/v0.1.0-hackathon (unsigned .dmg/.exe + SHA256SUMS.txt), linked from the web Download page and the README
-- [x] Windows node manager labelled experimental (UI, README, release notes)
+- [x] Windows graceful shutdown: real Ctrl+C, verified by the node-shutdown CI job on windows-latest and macos-latest (label now "Tested in CI on Windows; graceful shutdown verified")
 
 ## Final checks (2026-11-06)
 

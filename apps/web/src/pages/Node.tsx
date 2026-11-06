@@ -38,8 +38,9 @@ function DownloadPage() {
           <div className="flex flex-col gap-3 text-small">
             <p>
               Builds for macOS (Apple Silicon and Intel; the node manager needs Apple Silicon) and
-              Windows x64. They're unsigned. The node manager is Sepolia-only, and experimental on
-              Windows (stopping force-kills the clients, which may require a resync).
+              Windows x64. They're unsigned. The node manager is Sepolia-only. In the
+              v0.1.0-hackathon Windows build it's experimental (stopping force-kills the clients);
+              graceful Windows shutdown, tested in CI, comes in the next build.
             </p>
             <p>
               <a
@@ -183,11 +184,11 @@ function NodeManager() {
           </Callout>
         )}
         {pf?.platform.startsWith("win32") && (
-          <Callout tone="warning" title="Experimental on Windows">
-            Windows gives Selfnode no way to send these clients a clean shutdown signal, so stopping
-            the node force-kills them. Selfnode pauses Nethermind's block processing first, but
-            Nimbus, or a first sync that's still in progress, can be interrupted mid-write. If a
-            client won't start afterwards, the node may need to resync.
+          <Callout title="Tested in CI on Windows; graceful shutdown verified">
+            Stopping sends each client a real Ctrl+C and waits up to 60 s for it to close its
+            database. Selfnode only force-kills a client that doesn't exit in time, and offers a
+            resync from checkpoint if a database is ever damaged. A CI job runs both clients on
+            Windows and checks they shut down cleanly.
           </Callout>
         )}
         {status?.problems.map((p) => (

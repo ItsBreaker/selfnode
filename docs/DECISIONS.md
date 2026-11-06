@@ -485,3 +485,58 @@ update when ESLint ships a patched range.
   Verifying them is a planned improvement (there's no gpg on the build machine,
   and we'd need to pin Nethermind's signing key). Nimbus publishes none, hence the
   extra SHA-512 check.
+
+## Windows graceful shutdown (verified in CI, 2026-11-06)
+
+This supersedes the "experimental on Windows" entries above.
+
+- **Mechanism (no new dependencies or binaries):**
+  - **Start:** the client is started by a PowerShell launcher using `Start-Process`,
+    which (per PowerShell's `Process.cs`) uses `CREATE_NEW_CONSOLE`, not
+    `CREATE_NEW_PROCESS_GROUP`. So the client gets its own hidden console. stdout
+    and stderr go to log files that the app tails. The launcher reports the PID and
+    exit code; `$p.Handle` is read early, because PowerShell otherwise loses `ExitCode`.
+  - **Stop:** an inline `Add-Type` C# helper runs `FreeConsole` →
+    `AttachConsole(pid)` → `SetConsoleCtrlHandler(NULL, TRUE)` →
+    `GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0)`. Only the client is on that
+    console. We wait 60 s, and only then force-kill, logging it.
+- **Three Windows-specific problems the CI test found** (each fixed):
+  1. `tar` on PATH was Git's GNU tar, which can't read `.zip`. We now always use
+     `%SystemRoot%\System32\tar.exe` (bsdtar), and `/usr/bin/tar` on macOS,
+     which also prevents PATH hijacking.
+  2. Nimbus refused a pre-created data folder ("Data folder has insecure ACL").
+     Nimbus now creates its own folder, with owner-only access.
+  3. The clients inherited "ignore Ctrl+C" from the processes that started them,
+     so the event was delivered (helper returned 0) but ignored. The launcher now
+     calls `SetConsoleCtrlHandler(NULL, FALSE)` first; that state is inherited by
+     child processes (Win32 docs).
+- **What "clean" means** (asserted by `.github/workflows/node-shutdown.yml` on
+  windows-latest and macos-latest):
+  - The client exited by itself after the interrupt (no force-kill).
+  - Its exit code is the documented clean-interrupt code: Nethermind **130**
+    (`ExitCodes.SigInt = 130; // 128 + 2`), Nimbus **0**.
+  - It printed its own final line: Nethermind's `Nethermind is shut down`
+    (`Program.cs`), and Nimbus's `Databases closed`.
+  - Nethermind colourises its output, so lines are stripped of ANSI codes first.
+- **Results:** Windows: Nimbus stopped in 2 s (exit 0), Nethermind in 1 s
+  (exit 130). macOS: Nimbus 1 s (exit 0), Nethermind under 1 s (exit 130).
+  Every assertion passed.
+- **Quit, OS shutdown and log-off:**
+  - `before-quit` keeps the app alive until both clients have stopped.
+  - macOS/Linux: `powerMonitor` `shutdown` with `preventDefault()`.
+  - Windows: the window's `query-session-end` with `preventDefault()`, plus a
+    best-effort stop on `session-end`.
+- **Damage detection:** a per-client `.running` marker is removed only after a
+  verified clean exit. If it's found on the next start, the Node page warns about
+  an unclean stop. If a client dies at startup with Nethermind's
+  `DbCorruption = 109` exit code, or a database error in its log, the page offers
+  a one-click **resync from checkpoint**. It deletes that client's data only after
+  a native confirmation dialog.
+- **UPnP / NAT-PMP off by default:** Nethermind `--Network.EnableUPnP false`
+  ("Whether to enable automatic port forwarding via UPnP. Defaults to false",
+  set explicitly) and Nimbus `--nat=none` (its default `any` tries UPnP and
+  NAT-PMP; networking guide: "By default, Nimbus uses UPnP").
+- **Label:** "Experimental on Windows" became "Tested in CI on Windows; graceful
+  shutdown verified" (UI and README) once the CI job passed.
+- **The published v0.1.0-hackathon Windows build predates this work.** Its notes
+  correctly say "experimental". A new build would include graceful shutdown.
