@@ -207,11 +207,11 @@ after it, and decoded calls attributed to the archive.
 
 ## The web app on Swarm
 
-The production web build (commit `cf55cea`) is also on Swarm, and **Private
+The production web build (commit `970e60f`) is also on Swarm, and **Private
 mode works from it**:
 
-- **URL:** [https://bah5acgzaeq6dwpcnh6wblblowd4id6fp32dnhl65lwbhwogggysonob2zznq.bzz.limo/](https://bah5acgzaeq6dwpcnh6wblblowd4id6fp32dnhl65lwbhwogggysonob2zznq.bzz.limo/)
-- **Swarm reference:** `243c3b3c4d3fac15856eb0f881f8afde86d3afdd5d827b38c63624e6b83ace5b` (a website
+- **URL:** [https://bah5acgza24rt5fzsundf6gykleqgqmhtpzrmc2bd2fwx66hixe6z6wcdzura.bzz.limo/](https://bah5acgza24rt5fzsundf6gykleqgqmhtpzrmc2bd2fwx66hixe6z6wcdzura.bzz.limo/)
+- **Swarm reference:** `d7233e9732a3465f1b0a59206830f37e62c16823d16d7f78e8b93d9f5843cd22` (a website
   collection; index and error document `index.html`, so deep links work)
 - **Arkiv:** `selfnode-snapshot` entity
   `0x8746ba3e56aacc8a4bafe1959e19519d533a6f6140ac9041326c420cdee905c4`
@@ -233,7 +233,12 @@ usual bootstrap reads, 0 direct, and no CSP violations.
 - The CSPs are `<meta>` tags. Verified enforced: injected inline scripts and
   third-party scripts are blocked. But `frame-ancestors` can't be set from a
   meta tag, and `X-Frame-Options`, COOP and HSTS aren't sent, so the Swarm copy
-  could be framed by another site. The Cloudflare site remains the primary one.
+  can be framed by another site (see the next point). The Cloudflare site
+  remains the primary one.
+- **Clickjacking defence in the app itself:** because this copy can be framed,
+  the Wallet and Swap pages refuse to render inside a frame (`window.top !==
+window.self`) and show "Open Selfnode directly" instead. Checked by framing
+  this URL from another origin.
 - It's a separate origin, so its settings, wallet and worker-hash pins are
   separate from the Cloudflare site's.
 - Only bzz.limo serves it, at the base32 CID subdomain (root-absolute paths

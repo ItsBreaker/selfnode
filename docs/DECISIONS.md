@@ -648,9 +648,9 @@ Headers`, `Waiting for peers...`) are strings in the shipped 2.2.2 binary;
 
 ## The web app on Swarm (2026-11-06)
 
-- **Published**, because Private mode works from it: production build
-  `cf55cea` at https://bah5acgzaeq6dwpcnh6wblblowd4id6fp32dnhl65lwbhwogggysonob2zznq.bzz.limo/
-  (reference `243c3b3c4d3fac15…`), recorded as a `selfnode-snapshot` entity
+- **Published**, because Private mode works from it: first production build
+  `cf55cea`, re-uploaded as `970e60f` with frame-busting (see below), now at https://bah5acgza24rt5fzsundf6gykleqgqmhtpzrmc2bd2fwx66hixe6z6wcdzura.bzz.limo/
+  (reference `d7233e9732a3465f…`), recorded as a `selfnode-snapshot` entity
   with `dataset = "web"`. Tested end to end: Nox through the sandbox iframe,
   reads, Arkiv, the Data page, a deep-link reload, no CSP violations.
 - **Meta CSP instead of headers.** The CSPs from `_headers` are injected as
@@ -715,3 +715,19 @@ Headers`, `Waiting for peers...`) are strings in the shipped 2.2.2 binary;
   chunk renamed), then navigating to Swap in the old tab reloaded it onto build
   B; a missing old stylesheet reloaded it; a second missing file within 30 s
   didn't (no loop).
+
+## Frame-busting (2026-11-06)
+
+- The Wallet and Swap routes (wallet, send, swap, recovery phrase) render only
+  "Open Selfnode directly" with a link to open it in its own tab when the app is
+  inside a frame (`window.top !== window.self`, or the check throws). Explore,
+  Data and the rest still render. It's applied at the route level
+  (`app/FrameGuard.tsx`), so `pages/Swap.tsx` and its README line anchors are
+  untouched.
+- **Why:** the Swarm copy can't send `X-Frame-Options` or `frame-ancestors`.
+  On Cloudflare those headers already block framing; this is defence in depth.
+- The Anon-RPC sandbox iframe is a separate static page
+  (`anon-rpc-iframe.html` + its own script) that never loads the app, so it's
+  unaffected; Private mode still works inside a frame (checked).
+- The Swarm copy was re-uploaded with it: commit `970e60f`, reference
+  `d7233e97…`, same Arkiv entity (`snapshot:web`) patched.
