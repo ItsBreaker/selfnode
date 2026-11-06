@@ -27,6 +27,17 @@ import type { ClientId, Manifest, PlatformBuild, PlatformKey } from "./manifest"
 
 const run = promisify(execFile);
 
+/**
+ * The OS's own bsdtar, by absolute path: it reads both .zip and .tar.gz, and an
+ * absolute path means a different `tar` earlier on PATH (e.g. Git for Windows'
+ * GNU tar, which can't read .zip) is never used.
+ */
+export function systemTar(): string {
+  if (process.platform === "win32")
+    return join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe");
+  return "/usr/bin/tar";
+}
+
 export class VerificationError extends Error {
   override readonly name = "VerificationError";
 }
@@ -114,8 +125,7 @@ export async function ensureInstalled(
     );
   }
   onProgress(`Extracting ${client}…`);
-  // bsdtar on macOS and tar.exe on Windows 10+ both read .zip and .tar.gz.
-  await run("tar", ["-xf", archive, "-C", tmp]);
+  await run(systemTar(), ["-xf", archive, "-C", tmp]);
   rmSync(archive);
   const bin = join(tmp, build.binary);
   if (!existsSync(bin))
