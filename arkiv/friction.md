@@ -42,3 +42,8 @@ Kept as we go. Honest notes, newest last.
   docs would help builders budget before they start.
 - Pagination by `$key` (`orderBy(asc("$key"))` + `gt("$key", key(last))`) is
   documented clearly and worked first time.
+- `startsWith` on a **non-indexed** attribute (e.g. a label's `name`) returns
+  zero results instead of an error, so a search looks like "no matches" rather
+  than "you can't filter on this". An error, like the SDK's other validation,
+  would save a confusing debugging session. We filter those attributes on the
+  device on the Data page.

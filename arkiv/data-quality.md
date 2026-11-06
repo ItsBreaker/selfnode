@@ -2,7 +2,9 @@
 
 What Selfnode mirrors into Arkiv, where it comes from, how it's cleaned, and how
 fresh it is. Every number below comes from the importer's own output
-(`scripts/arkiv-mirror`, first full run on 2026-11-06).
+(`scripts/arkiv-mirror`, first full run on 2026-11-06). Browse every row, with
+its source, licence and commit, on the public Data page:
+[selfnode.jhfe.workers.dev/data](https://selfnode.jhfe.workers.dev/data).
 
 ## Sources and licences
 
@@ -110,7 +112,9 @@ ones that matter, ranked by **real usage**:
 
 ## Query filters available
 
-Indexed attributes, all combinable with `and`/`or`, always with `ownedBy(<mirror>)`:
+Indexed attributes, all combinable with `and`/`or` (and `startsWith` for
+prefixes), always with `ownedBy(<mirror>)`. Non-indexed attributes (label and
+token `name`, `note`, function `text`) can be read but not filtered on:
 
 | Entity             | Filter on                                                                          |
 | ------------------ | ---------------------------------------------------------------------------------- |

@@ -12,6 +12,10 @@ What would be lost if this were a Postgres database we ran:
   plan we control. The Rabdi public endpoint served our owner-scoped queries
   keylessly, and any wallet or script can run the same query
   ([schema.md](schema.md#query-it-yourself)).
+- **Our own Data page is just another reader.**
+  [selfnode.jhfe.workers.dev/data](https://selfnode.jhfe.workers.dev/data) browses the mirror
+  with the same keyless, owner-scoped queries anyone can run, and shows each one
+  as a copy-paste snippet. There's no private API behind it.
 - **It doesn't depend on us staying online.** If Selfnode's maintainers vanish, the
   entities stay readable until they expire, and anyone can re-run the open importer
   to publish their own copy under their own owner address.
@@ -25,11 +29,16 @@ What would be lost if this were a Postgres database we ran:
 - **Expirations keep it fresh by default.** In a database, stale rows stay forever
   unless someone deletes them. Here, rows dropped from a source simply aren't
   extended, so they age out. Freshness becomes a property of the system, not a
-  cleanup job.
+  cleanup job: a daily workflow (
+  [`.github/workflows/arkiv-mirror.yml`](https://github.com/ItsBreaker/selfnode/actions/workflows/arkiv-mirror.yml))
+  re-runs the importer, which patches what changed and extends what's close to
+  expiry. An unchanged run costs nothing.
 - **It's composable with privacy.** Selfnode reads Arkiv through Anon-RPC, so the
   Arkiv endpoint learns which labels are looked up but not who looked them up. A
   private API we ran would see both, and would be tempting to log.
 
 What we give up, honestly: queries are simpler than SQL (no joins, and no `IN`, so
-we batch with `OR`). Writes cost testnet gas. And the store is shared, so reads
+we batch with `OR`). Text search is prefix-only and only on indexed attributes,
+so the Data page searches label names and function texts on the device. Writes
+cost testnet gas. And the store is shared, so reads
 _must_ be scoped by owner to avoid look-alike entities.

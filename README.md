@@ -39,6 +39,7 @@ desktop and mobile) are in [`docs/screenshots/`](docs/screenshots/).
 | **Explorer**: address, transaction and block views, ENS search, ⌘K, labels and function names from **Arkiv**                                                   | ✅ live                                                                                  |
 | **Swap**: Uniswap v4 on Sepolia, quoted on-chain, Universal Router + Permit2                                                                                   | ✅ live, end-to-end on Sepolia                                                           |
 | **Arkiv mirror**: open-licensed labels, scam list, tokens and function names, re-runnable importer                                                             | ✅ 3,349 entities on Rabdi (+3 snapshot pointers)                                        |
+| **Data** page: browse the Arkiv mirror without a wallet (search, source + licence + commit per row, copy-paste query)                                          | ✅ live at [/data](https://selfnode.jhfe.workers.dev/data)                               |
 | **Privacy report** page: what every third party learns, per mode                                                                                               | ✅ live                                                                                  |
 | **Desktop app** (Electron, `app://`): same UI plus a node manager that downloads, verifies and runs a pruned Sepolia node (Nethermind + Nimbus)                | ✅ macOS Apple Silicon and Windows x64 (graceful shutdown tested in CI); unsigned builds |
 | **Swarm snapshots** of the mirrored datasets, referenced from Arkiv (`swarmRef` + SHA-256), and `--from-swarm` rebuild ([swarm.md](arkiv/swarm.md))            | ✅ 3 snapshots via the bzz.limo public gateway; opt-in in-app archive                    |
@@ -179,7 +180,7 @@ Every exception, and why:
 - MIT licence. Pinned exact dependency versions with a committed lockfile.
 - Dependency install scripts are blocked except `esbuild`, and pnpm's
   minimum-release-age policy applies with no exceptions.
-- CI runs typecheck, lint, format, 152 tests and gitleaks on every push, plus macOS and Windows desktop builds.
+- CI runs typecheck, lint, format, 157 tests and gitleaks on every push, plus macOS and Windows desktop builds.
 - Builds with `pnpm install && pnpm --filter @selfnode/web build`.
 
 **Privacy**
@@ -257,7 +258,11 @@ about flagged recipients before you sign, and decode calldata.
 - **Importer:** [`scripts/arkiv-mirror/`](scripts/arkiv-mirror/). It's
   idempotent: it creates, patches, extends near expiry, or skips by a
   deterministic key. It guards a tGLM reserve. Run it with
-  `pnpm --filter @selfnode/scripts arkiv:mirror [--dry-run]`.
+  `pnpm --filter @selfnode/scripts arkiv:mirror [--dry-run]`. **Refreshed
+  daily** by [`.github/workflows/arkiv-mirror.yml`](https://github.com/ItsBreaker/selfnode/actions/workflows/arkiv-mirror.yml).
+- **Browse it:** the public **Data page**, [selfnode.jhfe.workers.dev/data](https://selfnode.jhfe.workers.dev/data): tokens by symbol or
+  address, labels by name, category or address, function names by selector or
+  text, each with source, licence and commit, plus a copy-paste query.
 - **Swarm snapshots:** each dataset is also one unencrypted JSON file on Swarm,
   pointed to by a `selfnode-snapshot` entity (`swarmRef`, `sha256`). `--snapshot`
   uploads them; `--from-swarm` rebuilds Arkiv from them after verifying the
@@ -316,7 +321,7 @@ packages/core/       framework-agnostic TypeScript
   src/config/        chains, RPCs, Anon-RPC specifiers, Uniswap and Arkiv addresses (each with its source)
   src/transport/     mode router, Anon-RPC worker pool, Helios, traffic and health tracking
   src/wallet/        keys, vault, session, signer (testnet guard), send preview
-  src/labels/        Arkiv schemas, mirror reader, Swarm archive (opt-in), calldata decoding
+  src/labels/        Arkiv schemas, mirror reader, Data-page browsing, Swarm archive (opt-in), calldata decoding
   src/swap/          Uniswap v4 encoding, quoting, Permit2, swap checks
 apps/web/            React + Vite UI
 apps/desktop/        Electron shell (app://), node manager, node-manifest.json

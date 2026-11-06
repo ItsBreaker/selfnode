@@ -15,6 +15,9 @@ Built from section 3 of the build brief. Tick as completed.
 - [x] A user-visible feature reads from Arkiv (labels, signatures, tokens)
 - [x] Data licences allow republishing; linked in README. No Sourcify data.
 - [x] Re-runnable import script in `scripts/arkiv-mirror/`
+- [x] Daily refresh workflow (`.github/workflows/arkiv-mirror.yml`: schedule + manual, main only, contents: read, tGLM reserve guard)
+- [ ] **Jayden:** add repository secrets `ARKIV_MIRROR_PRIVATE_KEY` and `ARKIV_ACCESS_KEY`, then the first manual run
+- [x] Public Data page (`/data`): browse tokens, labels and function names with source, licence and commit, plus a query snippet
 - [x] README lists writer wallet address(es) and one runnable query
 - [x] `/arkiv/friction.md`
 - [x] `/arkiv/reach.md`

@@ -7,6 +7,12 @@
   mirrored function names. The wallet checks every recipient against the mirror
   before signing, and warns, with the source named, if the address is flagged.
   All reads go through Anon-RPC and are cached on the device.
+- **Anyone, in a browser: the public Data page** at
+  [selfnode.jhfe.workers.dev/data](https://selfnode.jhfe.workers.dev/data) (no wallet). Search
+  the 2,105 tokens by symbol or address, the 796 labels (652 flagged) by name,
+  category or address, and the 444 function names by selector or text. Every row
+  shows its source, licence and source commit, and the page prints a standalone
+  "query this yourself" snippet for the exact query it ran.
 
 ## Reuse it in your wallet or explorer (copy-paste)
 
@@ -79,6 +85,12 @@ const { entities } = await arkiv
 | The 100 most-used function names | `and(eq("type","sig"), lte("rank", i32(100)))` (`i32` from `@arkiv-network/sdk/schema`) |
 | The licence notice for a dataset | `and(eq("type","dataset"), eq("dataset","labels"))`                                     |
 
+**Prefix search** works on indexed `str` attributes, e.g.
+`and(eq("type","token"), startsWith("symbol","USD"))` (7 tokens) or
+`startsWith("selector","0xa905")`. It does **not** work on non-indexed ones:
+`startsWith("name", …)` on labels silently returns nothing, so the Data page
+filters names and function texts on the device instead.
+
 Tips: batch many addresses in one query with
 `or(addresses.map((a) => eq("address", a)))` (we use chunks of 25). Cache
 results, including "not found". Read through an anonymity network if you can,
@@ -99,6 +111,10 @@ which is what Selfnode does.
 - **Anyone can fork the mirror.** `scripts/arkiv-mirror/` is open source (MIT) and
   re-runnable. Point it at a funded Rabdi key and it publishes the same datasets
   under a new owner, with the same provenance fields.
-- **Freshness:** re-running the importer is cheap when nothing changed (it only
-  extends entities close to expiry), so it suits a scheduled job, for example
-  weekly, well inside the 45-day extension window.
+- **Freshness:** the mirror is **refreshed daily** by
+  [`.github/workflows/arkiv-mirror.yml`](https://github.com/ItsBreaker/selfnode/actions/workflows/arkiv-mirror.yml).
+  A run with no source changes only extends entities close to expiry, well
+  inside the 45-day extension window, and costs nothing otherwise.
+- **Bulk copies:** each dataset is also a verified snapshot on Swarm
+  ([swarm.md](swarm.md)); [`examples/swarm-read.ts`](examples/swarm-read.ts)
+  fetches one and checks it against Arkiv.
