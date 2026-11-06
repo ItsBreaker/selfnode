@@ -28,7 +28,7 @@ export function Header({
         >
           <Wordmark compact />
         </NavLink>
-        <nav aria-label="Main" className="hidden items-center gap-0.5 lg:flex">
+        <nav aria-label="Main" className="hidden items-center gap-0.5 xl:flex">
           {NAV.map((n) => (
             <NavLink
               key={n.to}

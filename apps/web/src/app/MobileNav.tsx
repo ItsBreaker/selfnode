@@ -14,7 +14,7 @@ export function MobileNav({ themeToggle }: { themeToggle: React.ReactNode }) {
         <button
           type="button"
           aria-label="Open menu"
-          className="inline-flex size-11 items-center justify-center rounded-md text-text hover:bg-sunken lg:hidden"
+          className="inline-flex size-11 items-center justify-center rounded-md text-text hover:bg-sunken xl:hidden"
         >
           <Menu size={20} aria-hidden />
         </button>
