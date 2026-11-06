@@ -2,8 +2,8 @@
 
 **Setup before recording**
 
-- Run `pnpm --filter @selfnode/web dev` and open the app in a clean browser
-  profile.
+- Open **https://selfnode.jhfe.workers.dev/** in a clean browser profile (or
+  run `pnpm --filter @selfnode/web dev` locally).
 - Have a wallet created and funded on Sepolia: `pnpm --filter @selfnode/scripts
 fund <address> 0.004`.
 - Open the Overview once so Nox is already connected (the first connection takes

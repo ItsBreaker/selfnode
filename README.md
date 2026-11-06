@@ -4,7 +4,9 @@
 goes through an anonymity network by default, so no RPC provider learns who you
 are, and nothing depends on Infura's, Etherscan's or Uniswap's servers.**
 
-Built at ETHGlobal Mumbai (November 2026). MIT licensed.
+**Live:** [selfnode.jhfe.workers.dev](https://selfnode.jhfe.workers.dev/) (Sepolia
+wallet and swap; mainnet read-only). Built at ETHGlobal Mumbai (November 2026).
+MIT licensed.
 
 ## What works today
 
@@ -37,7 +39,7 @@ keys from a local `.env` (see [`.env.example`](.env.example)).
 
 ## Deploy
 
-A Cloudflare Worker with static assets and no server code
+Live at **https://selfnode.jhfe.workers.dev/**. It's a Cloudflare Worker with static assets and no server code
 ([`apps/web/wrangler.jsonc`](apps/web/wrangler.jsonc)), with security headers in
 [`apps/web/public/_headers`](apps/web/public/_headers):
 
@@ -48,8 +50,9 @@ A Cloudflare Worker with static assets and no server code
   harness never needs an inline script.
 
 Tested with `pnpm --filter @selfnode/web preview:cf` (`wrangler dev` on the
-production build): Nox, Nym, Helios (WASM), Arkiv labels and the full
-wallet-and-swap flow all ran with zero CSP violations.
+production build), and again on the live site: Nox, Nym, Helios (WASM), Arkiv
+labels and the full wallet-and-swap flow all ran with zero CSP violations.
+Deploy with `pnpm --filter @selfnode/web deploy:cf`.
 
 ## Anon-RPC: private by default
 
