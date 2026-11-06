@@ -114,7 +114,7 @@ export function DecodedCallView({ data }: { data: Hex }) {
         {d.call.args.map((a, i) => (
           <div key={i} className="contents">
             <dt className="font-mono text-caption text-muted">
-              {a.name} <span className="opacity-70">{a.type}</span>
+              <span className="text-text">{a.name}</span> {a.type}
             </dt>
             <dd className="min-w-0">
               <Value type={a.type} value={a.value} />
