@@ -76,6 +76,26 @@ export interface NodeSettings {
   checkpointUrl: string;
 }
 
+/**
+ * Synced only when both clients say so, the execution client has peers and a
+ * head, AND that head is under 2 minutes old. So a node that reports "not
+ * syncing" while still catching up can't trigger the switch to local reads.
+ */
+export function isSynced(
+  ex: Pick<NodeStatus["execution"], "syncing" | "peers" | "currentBlock">,
+  cs: Pick<NodeStatus["consensus"], "syncing">,
+  headAgeSeconds: number | null,
+): boolean {
+  return (
+    ex.syncing === false &&
+    (ex.peers ?? 0) > 0 &&
+    cs.syncing === false &&
+    (ex.currentBlock ?? 0) > 0 &&
+    headAgeSeconds !== null &&
+    headAgeSeconds < 120
+  );
+}
+
 type Log = { source: "nethermind" | "nimbus" | "selfnode"; line: string; at: number };
 
 export class NodeManager {
@@ -206,7 +226,10 @@ export class NodeManager {
         "--JsonRpc.JwtSecretFile",
         jwt,
         "--JsonRpc.EnabledModules",
-        "[Eth,Net,Web3,Health,Proof]",
+        // Admin only on Windows, for admin_pauseBlockProcessing before a forced stop (see stop()).
+        process.platform === "win32"
+          ? "[Eth,Net,Web3,Health,Proof,Admin]"
+          : "[Eth,Net,Web3,Health,Proof]",
         "--Init.WebSocketsEnabled",
         "false",
         "--HealthChecks.Enabled",
@@ -327,11 +350,11 @@ export class NodeManager {
     }
   }
 
-  async #rpc<T>(method: string): Promise<T> {
+  async #rpc<T>(method: string, params: unknown[] = []): Promise<T> {
     const r = await fetch(EL_RPC, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params: [] }),
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
       signal: AbortSignal.timeout(4000),
     });
     return ((await r.json()) as { result: T }).result;
@@ -344,13 +367,16 @@ export class NodeManager {
 
   async #refresh(): Promise<void> {
     const ex = { ...this.#status.execution, running: this.#el !== null };
+    let headAgeSeconds: number | null = null;
     const cs = { ...this.#status.consensus, running: this.#cl !== null };
     try {
-      const [syncing, peers, block] = await Promise.all([
+      const [syncing, peers, block, head] = await Promise.all([
         this.#rpc<false | { currentBlock: string; highestBlock: string }>("eth_syncing"),
         this.#rpc<string>("net_peerCount"),
         this.#rpc<string>("eth_blockNumber"),
+        this.#rpc<{ timestamp: string } | null>("eth_getBlockByNumber", ["latest", false]),
       ]);
+      headAgeSeconds = head ? Math.round(Date.now() / 1000 - Number(head.timestamp)) : null;
       ex.peers = Number(peers);
       ex.syncing = syncing !== false;
       ex.currentBlock = syncing ? Number(syncing.currentBlock) : Number(block);
@@ -383,11 +409,7 @@ export class NodeManager {
         eta = Math.round((ex.highestBlock - ex.currentBlock) / rate);
       }
     }
-    const synced =
-      ex.syncing === false &&
-      (ex.peers ?? 0) > 0 &&
-      cs.syncing === false &&
-      (ex.currentBlock ?? 0) > 0;
+    const synced = isSynced(ex, cs, headAgeSeconds);
     const busy = ["paused-battery", "paused-low-disk", "stopping", "error"].includes(
       this.#status.state,
     );
@@ -425,6 +447,7 @@ export class NodeManager {
         });
         p.kill("SIGINT");
       });
+    if (process.platform === "win32") await this.#prepareWindowsStop();
     // Consensus first (it drives the execution client), then execution.
     await stopOne(this.#cl);
     await stopOne(this.#el);
@@ -433,6 +456,31 @@ export class NodeManager {
       ...this.#blank(reason, reason === "stopped" ? "Stopped." : this.#status.message),
       disk: this.#status.disk,
     });
+  }
+
+  /**
+   * Windows has no way (without native code) to send these console apps a
+   * Ctrl+C, so stop() ends them forcefully. Best effort first: pause
+   * Nethermind's block processing so no block is mid-write when it's killed.
+   * Neither client offers a shutdown RPC; Nimbus only stops cleanly on SIGINT.
+   */
+  async #prepareWindowsStop(): Promise<void> {
+    try {
+      const ok = await this.#rpc<boolean>("admin_pauseBlockProcessing");
+      for (let i = 0; ok && i < 20; i++) {
+        if (await this.#rpc<boolean>("admin_isBlockProcessingPaused")) break;
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      this.#log(
+        "selfnode",
+        `Windows: paused Nethermind block processing before stopping (${ok ? "ok" : "not confirmed"}).`,
+      );
+    } catch (e) {
+      this.#log(
+        "selfnode",
+        `Windows: couldn't pause block processing before stopping (${(e as Error).message}).`,
+      );
+    }
   }
 
   async onBattery(): Promise<void> {
