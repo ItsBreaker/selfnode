@@ -649,8 +649,11 @@ Headers`, `Waiting for peers...`) are strings in the shipped 2.2.2 binary;
 ## The web app on Swarm (2026-11-06)
 
 - **Published**, because Private mode works from it: first production build
-  `cf55cea`, re-uploaded as `970e60f` with frame-busting (see below), now at https://bah5acgza24rt5fzsundf6gykleqgqmhtpzrmc2bd2fwx66hixe6z6wcdzura.bzz.limo/
-  (reference `d7233e9732a3465f…`), recorded as a `selfnode-snapshot` entity
+  `cf55cea`, re-uploaded as `970e60f` with frame-busting (see below), then on
+  2026-11-07 as `c95186a` through our own Bee node and postage batch (see
+  [swarm.md](../arkiv/swarm.md#postage-batch-and-bee-node)), now at
+  https://bah5acgzaioxjlpvswpkqqryu7ed5ylkw7ajxcadarxiignu44j2u2agvkykq.bzz.limo/
+  (reference `43ae95beb2b3d508…`), recorded as a `selfnode-snapshot` entity
   with `dataset = "web"`. Tested end to end: Nox through the sandbox iframe,
   reads, Arkiv, the Data page, a deep-link reload, no CSP violations.
 - **Meta CSP instead of headers.** The CSPs from `_headers` are injected as

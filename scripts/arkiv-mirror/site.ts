@@ -26,7 +26,7 @@ import { SnapshotSchema } from "@selfnode/core/labels/schema";
 import { formatEther, parseEther } from "viem";
 import { account, reader, redact } from "./client.js";
 import { cspFor, withMetaCsp } from "./site-csp.js";
-import { sha256Hex, swarmCid, swarmUploadSite } from "./swarm.js";
+import { sha256Hex, swarmCid, swarmUploadSite, UPLOAD_LABEL } from "./swarm.js";
 import { hashContent, sync, type Values } from "./sync.js";
 
 const args = process.argv.slice(2);
@@ -83,7 +83,9 @@ if (process.argv[1]?.endsWith("site.ts")) {
     const { reference, tag } = await swarmUploadSite(tar);
     const cid = swarmCid(reference);
     const url = `https://${cid}.bzz.limo/`;
-    console.log(`Uploaded via bzz.limo: ${reference} (swarm-tag ${tag ?? "none"})\n  ${url}`);
+    console.log(
+      `Uploaded via ${UPLOAD_LABEL}: ${reference} (swarm-tag ${tag ?? "none"})\n  ${url}`,
+    );
     const served = await (await fetch(url, { signal: AbortSignal.timeout(90_000) })).text();
     const local = readFileSync(join(site, "index.html"), "utf8");
     if (served !== local) throw new Error(`${url} doesn't serve this build's index.html`);

@@ -22,7 +22,7 @@ import {
   type DatasetId,
   type SnapshotRow,
 } from "./snapshot.js";
-import { READ_GATEWAYS, sha256Hex, swarmDownload, swarmUpload } from "./swarm.js";
+import { READ_GATEWAYS, sha256Hex, swarmDownload, swarmUpload, UPLOAD_LABEL } from "./swarm.js";
 import { sync, type Planned, type SyncReport } from "./sync.js";
 
 export interface RunOpts {
@@ -70,7 +70,7 @@ export async function runSnapshot(datasets: DatasetId[], opts: RunOpts): Promise
       continue;
     }
     const { reference, tag } = await swarmUpload(`selfnode-${ds}.json`, bytes);
-    console.log(`  uploaded to bzz.limo: ${reference} (swarm-tag ${tag ?? "none"})`);
+    console.log(`  uploaded via ${UPLOAD_LABEL}: ${reference} (swarm-tag ${tag ?? "none"})`);
     for (const g of READ_GATEWAYS) {
       try {
         const r = await swarmDownload(reference, sha, [g]);

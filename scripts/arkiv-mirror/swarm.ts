@@ -2,8 +2,11 @@
  * Swarm over public gateways, with plain fetch (no swarm-cli or bee-js).
  *
  * Upload: POST /bzz on the bzz.limo public gateway (recommended by the Swarm
- * team). It stamps uploads with its own postage batch; the batch ID and its
- * lifetime are not exposed. Uploads are unencrypted, so anyone can read them.
+ * team), which stamps uploads with its own postage batch (ID and lifetime not
+ * exposed). Or, with SWARM_UPLOAD_URL (e.g. a local Bee node at
+ * http://127.0.0.1:1633) and SWARM_POSTAGE_BATCH_ID, through your own node and
+ * your own batch; the upload then waits until the chunks are pushed to the
+ * network. Uploads are unencrypted, so anyone can read them.
  *
  * Download: bzz.limo first, then api.gateway.ethswarm.org. Content is
  * verified against an expected SHA-256 before it's used, so a gateway can't
@@ -11,7 +14,18 @@
  */
 import { createHash } from "node:crypto";
 
-export const UPLOAD_GATEWAY = "https://bzz.limo";
+export const UPLOAD_GATEWAY =
+  process.env.SWARM_UPLOAD_URL?.replace(/\/$/, "") || "https://bzz.limo";
+const BATCH = process.env.SWARM_POSTAGE_BATCH_ID?.trim();
+if (BATCH && !/^[0-9a-f]{64}$/.test(BATCH))
+  throw new Error("SWARM_POSTAGE_BATCH_ID must be 64 hex characters");
+/** Where uploads go, for log lines. */
+export const UPLOAD_LABEL = BATCH
+  ? `${UPLOAD_GATEWAY} (batch ${BATCH.slice(0, 8)}…)`
+  : UPLOAD_GATEWAY;
+/** Headers for your own batch (and a synchronous push), if one is set. */
+const stampHeaders = (): Record<string, string> =>
+  BATCH ? { "swarm-postage-batch-id": BATCH, "swarm-deferred-upload": "false" } : {};
 export const READ_GATEWAYS = ["https://bzz.limo", "https://api.gateway.ethswarm.org"] as const;
 
 export const sha256Hex = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
@@ -26,7 +40,7 @@ export async function swarmUpload(
 ): Promise<{ reference: string; tag: string | null }> {
   const res = await fetch(`${UPLOAD_GATEWAY}/bzz?name=${encodeURIComponent(name)}`, {
     method: "POST",
-    headers: { "Content-Type": contentType },
+    headers: { "Content-Type": contentType, ...stampHeaders() },
     body: Buffer.from(body),
     signal: AbortSignal.timeout(120_000),
   });
@@ -90,6 +104,7 @@ export async function swarmUploadSite(
       "swarm-collection": "true",
       "swarm-index-document": "index.html",
       "swarm-error-document": "index.html",
+      ...stampHeaders(),
     },
     body: Buffer.from(tar),
     signal: AbortSignal.timeout(300_000),

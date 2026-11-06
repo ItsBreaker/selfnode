@@ -8,7 +8,7 @@ are, and nothing depends on Infura's, Etherscan's or Uniswap's servers.**
 wallet and swap; mainnet read-only). **Desktop:**
 [v0.1.1-hackathon](https://github.com/ItsBreaker/selfnode/releases/tag/v0.1.1-hackathon)
 (macOS and Windows, unsigned). **Swarm mirror:**
-[bah5acgza24rt5fz….bzz.limo](https://bah5acgza24rt5fzsundf6gykleqgqmhtpzrmc2bd2fwx66hixe6z6wcdzura.bzz.limo/) (the same build, served from Swarm;
+[bah5acgzaioxjlpv….bzz.limo](https://bah5acgzaioxjlpvswpkqqryu7ed5ylkw7ajxcadarxiignu44j2u2agvkykq.bzz.limo/) (the same build, served from Swarm;
 [details](arkiv/swarm.md#the-web-app-on-swarm)). Built at ETHGlobal Mumbai (November 2026).
 MIT licensed.
 
