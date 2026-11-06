@@ -1,7 +1,7 @@
 {
   "name": "@selfnode/desktop",
   "productName": "Selfnode",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Selfnode desktop: private Ethereum wallet, explorer and swap, with a node manager.",
   "author": "Selfnode contributors",
   "license": "MIT",
