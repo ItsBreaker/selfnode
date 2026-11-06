@@ -10,6 +10,8 @@ export interface AddressLabel {
   source: string;
   /** True when the label was read from Selfnode's Arkiv mirror (owner-scoped). */
   fromArkiv: boolean;
+  /** Set when it came from the Swarm archive (a verified snapshot of the same mirror). */
+  via?: "swarm";
 }
 
 /**
@@ -36,11 +38,22 @@ export function Address({
         <>
           <span className="min-w-[6ch] truncate font-medium text-text">{label.name}</span>
           {label.fromArkiv && (
-            <Tooltip content={<>Verified label from Arkiv · source: {label.source}</>}>
+            <Tooltip
+              content={
+                label.via === "swarm" ? (
+                  <>
+                    Verified label from the Swarm archive of Selfnode's Arkiv mirror · source:{" "}
+                    {label.source}
+                  </>
+                ) : (
+                  <>Verified label from Arkiv · source: {label.source}</>
+                )
+              }
+            >
               <span
                 tabIndex={0}
                 className="relative inline-flex text-verified after:absolute after:-inset-3 after:content-['']"
-                aria-label={`Verified label from Arkiv, source ${label.source}`}
+                aria-label={`Verified label from ${label.via === "swarm" ? "the Swarm archive" : "Arkiv"}, source ${label.source}`}
               >
                 <BadgeCheck size={14} aria-hidden />
               </span>

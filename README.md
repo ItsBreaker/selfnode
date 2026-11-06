@@ -149,12 +149,13 @@ all time.
 
 Every exception, and why:
 
-| Route                                | Why it isn't anonymised                                                                                                                            |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Bootstrap read                       | Starting an anonymity network needs one read of its on-chain specifier (worker hash and resolvers) before the network exists. 2 calls per session. |
-| Helios upstream (Verified mode only) | Helios accepts URLs, not a `fetch` function, so it can't use Anon-RPC. It's a separate mode the user chooses, labelled "Helios · direct".          |
-| Your node (My node mode only)        | Reads go to your own node. Broadcasts still use Anon-RPC.                                                                                          |
-| Direct, approved by you              | A one-off request the user explicitly confirmed, counted separately.                                                                               |
+| Route                                | Why it isn't anonymised                                                                                                                                                                              |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bootstrap read                       | Starting an anonymity network needs one read of its on-chain specifier (worker hash and resolvers) before the network exists. 2 calls per session.                                                   |
+| Helios upstream (Verified mode only) | Helios accepts URLs, not a `fetch` function, so it can't use Anon-RPC. It's a separate mode the user chooses, labelled "Helios · direct".                                                            |
+| Your node (My node mode only)        | Reads go to your own node. Broadcasts still use Anon-RPC.                                                                                                                                            |
+| Direct, approved by you              | A one-off request the user explicitly confirmed, counted separately.                                                                                                                                 |
+| Swarm archive (opt-in)               | Only if the user clicks "Load labels from the Swarm archive": three public snapshot files from the bzz.limo gateway, SHA-256-checked against Arkiv. Plain downloads, not RPC, so not in the counter. |
 
 ## CROPS
 

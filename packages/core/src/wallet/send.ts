@@ -41,6 +41,8 @@ export interface RecipientLabel {
   note?: string;
   /** Link to the exact source revision. */
   url?: string;
+  /** Set when the label came from the Swarm archive rather than a live Arkiv query. */
+  via?: "swarm";
 }
 
 export interface SendFacts {

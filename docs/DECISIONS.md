@@ -578,5 +578,15 @@ This supersedes the "experimental on Windows" entries above.
   recomputes every row's `contentHash` before writing anything back.
 - **First upload:** 3 snapshot entities, 0.000992 tGLM; balance stayed far above
   the 2 tGLM reserve.
-- **App fallback ("Load labels from the Swarm archive"):** opt-in only, because
-  a gateway sees the reader's IP and Anon-RPC can't carry plain HTTP GETs.
+- **App: "Load labels from the Swarm archive" (Settings), opt-in only.** A
+  gateway sees the reader's IP and Anon-RPC only carries JSON-RPC, so it's never
+  automatic and never remembered: one click, for this session. The expected
+  SHA-256s come from the snapshot entities on Arkiv (read through Anon-RPC); if
+  Arkiv is unreachable, from pointers pinned in the build. Once loaded, the
+  archive answers label and function-name lookups first (shown as "from the
+  Swarm archive"); misses still go to Arkiv. Listed on the Privacy page and in
+  the README's exceptions table.
+- **CSP:** `connect-src` already allows `https:` (users pick their own RPC,
+  Helios and node endpoints), so bzz.limo needed no new entry. Narrowing it to
+  the gateway would have broken custom endpoints; the opt-in gate is in the app,
+  not the CSP.

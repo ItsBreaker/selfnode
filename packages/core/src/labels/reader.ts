@@ -11,12 +11,15 @@ import { createPublicClient } from "@arkiv-network/sdk";
 import { rabdi } from "@arkiv-network/sdk/chains";
 import { and, eq, or } from "@arkiv-network/sdk/query";
 import { hexToString, http, isHex, type Address } from "viem";
-import { LabelSchema, SigSchema, TokenSchema } from "./schema.js";
+import type { SnapshotPointer } from "./archive.js";
+import { LabelSchema, SigSchema, SnapshotSchema, TokenSchema } from "./schema.js";
 
 export interface MirrorProvenance {
   source: string;
   license: string;
   sourceCommit: string;
+  /** Set when the answer came from the Swarm archive (opt-in) rather than a live Arkiv query. */
+  via?: "swarm";
 }
 export interface MirrorLabel extends MirrorProvenance {
   name: string;
@@ -97,6 +100,41 @@ export class MirrorReader {
       `addr:${chainId}:${address.toLowerCase()}`,
       chainId,
     );
+  }
+
+  /** The current Swarm snapshot pointers (one `selfnode-snapshot` entity per dataset). */
+  async snapshots(): Promise<SnapshotPointer[]> {
+    const res = await this.#client
+      .select()
+      .from(SnapshotSchema)
+      .where(eq("type", "snapshot") as never)
+      .ownedBy(this.#owner)
+      .limit(20)
+      .fetch();
+    const latest = new Map<string, { p: SnapshotPointer; at: number }>();
+    for (const e of res.entities as unknown as {
+      dataset: V;
+      rowKey: V;
+      swarmRef?: V;
+      sha256: V;
+      rowCount: V;
+      createdAt: V;
+    }[]) {
+      const dataset = String(e.dataset.value) as SnapshotPointer["dataset"];
+      if (String(e.rowKey.value) !== `snapshot:${dataset}` || !e.swarmRef) continue;
+      const at = Number(e.createdAt.value);
+      if ((latest.get(dataset)?.at ?? -1) >= at) continue;
+      latest.set(dataset, {
+        at,
+        p: {
+          dataset,
+          swarmRef: String(e.swarmRef.value),
+          sha256: String(e.sha256.value),
+          rowCount: Number(e.rowCount.value),
+        },
+      });
+    }
+    return [...latest.values()].map((x) => x.p);
   }
 
   /** Candidate texts for a 4-byte selector, or null. */

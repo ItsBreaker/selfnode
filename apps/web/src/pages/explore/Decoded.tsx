@@ -104,7 +104,8 @@ export function DecodedCallView({ data }: { data: Hex }) {
             rel="noreferrer noopener"
             className="inline-flex items-center gap-1 text-caption text-verified"
           >
-            <BadgeCheck size={13} aria-hidden /> name from Arkiv · {d.provenance.source}
+            <BadgeCheck size={13} aria-hidden /> name from{" "}
+            {d.provenance.via === "swarm" ? "the Swarm archive" : "Arkiv"} · {d.provenance.source}
           </a>
         ) : (
           <Badge>built-in ABI</Badge>

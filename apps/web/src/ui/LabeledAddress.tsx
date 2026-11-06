@@ -28,7 +28,12 @@ export function LabeledAddress({
       // A flag isn't a name: show the plain address plus the amber badge, never a "verified" tick.
       label={
         label && label.category !== "flagged"
-          ? { name: label.name, source: `${label.source} (${label.license})`, fromArkiv: true }
+          ? {
+              name: label.name,
+              source: `${label.source} (${label.license})`,
+              fromArkiv: true,
+              ...(label.via ? { via: label.via } : {}),
+            }
           : undefined
       }
     />

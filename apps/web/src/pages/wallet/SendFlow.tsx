@@ -165,6 +165,7 @@ export function SendFlow() {
           source: l.source,
           url: labelUrl(l),
           ...(l.note ? { note: l.note } : {}),
+          ...(l.via ? { via: l.via } : {}),
         };
       });
       const { preview, tx } = assessSend(req, facts);
@@ -399,6 +400,7 @@ function PreviewView({ preview }: { preview: SendPreview }) {
                     name: preview.recipient.label.name,
                     source: preview.recipient.label.source,
                     fromArkiv: true,
+                    ...(preview.recipient.label.via ? { via: preview.recipient.label.via } : {}),
                   }
                 : undefined
             }

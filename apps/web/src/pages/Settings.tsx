@@ -15,6 +15,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "react-router";
 import { Page } from "../app/AppShell";
 import { MODE_COPY } from "../content/modes";
+import { useSwarmArchive } from "../state/labels";
 import { useSelfnode, useTraffic } from "../state/selfnode";
 import { useTheme } from "../theme";
 import { Button } from "../ui/Button";
@@ -137,6 +138,8 @@ export function Settings() {
             <ThemeToggle value={pref} onChange={setPref} />
           </div>
         </Panel>
+
+        <SwarmArchive />
 
         <TrafficSettings />
       </div>
@@ -351,6 +354,70 @@ function EndpointSettings() {
         </div>
       </div>
     </Panel>
+  );
+}
+
+/** Opt-in only: one explicit click per session, never automatic and never remembered. */
+function SwarmArchive() {
+  const { state, load, unload } = useSwarmArchive();
+  const ready = state.status === "ready" ? state.loaded : null;
+  return (
+    <div id="swarm-archive" className="scroll-mt-6">
+      <Panel title="Swarm archive">
+        <div className="flex flex-col gap-4">
+          <p className="text-small text-muted">
+            Selfnode&apos;s labels, tokens and function names are also archived on Swarm, one
+            snapshot per dataset. Loading them answers lookups from this device instead of asking
+            Arkiv one address at a time, and keeps labels working if Arkiv is unreachable.
+          </p>
+          <Callout tone="warning" title="The Swarm gateway sees your IP address">
+            The snapshots (about 2.6 MB) are downloaded directly from the bzz.limo public gateway,
+            not through the anonymity network, so the gateway learns your IP address and that you
+            downloaded Selfnode&apos;s label archive. Nothing about your own addresses is sent. Each
+            file is used only if its SHA-256 matches the one recorded on Arkiv (or, if Arkiv
+            can&apos;t be reached, the one built into this version). Off until you load it, and only
+            for this session.
+          </Callout>
+          {ready ? (
+            <div className="flex flex-col gap-3" role="status">
+              <p className="text-small">
+                <span className="font-medium">Loaded and verified:</span>{" "}
+                {ready.index.counts.tokens.toLocaleString()} tokens,{" "}
+                {ready.index.counts.labels.toLocaleString()} labels,{" "}
+                {ready.index.counts.sigs.toLocaleString()} function names (
+                {(ready.bytes / 1_000_000).toFixed(1)} MB; hashes from{" "}
+                {ready.pointers === "arkiv"
+                  ? "Arkiv"
+                  : `this build, because Arkiv's snapshot records couldn't be read: ${ready.pointerError ?? "unknown error"}`}
+                ).
+              </p>
+              <div>
+                <Button onClick={unload}>Stop using the archive</Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {state.status === "error" && (
+                <Callout tone="danger" title="Couldn't load the Swarm archive">
+                  {state.message}. Labels still come from Arkiv as usual.
+                </Callout>
+              )}
+              <div>
+                <Button
+                  variant="primary"
+                  busy={state.status === "loading"}
+                  onClick={() => void load()}
+                >
+                  {state.status === "loading"
+                    ? `Downloading ${state.done + 1} of ${state.total}…`
+                    : "Load labels from the Swarm archive"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </Panel>
+    </div>
   );
 }
 

@@ -47,6 +47,17 @@ export const PARTIES: Party[] = [
     },
   },
   {
+    name: "Swarm gateway (bzz.limo)",
+    who: 'Only if you click "Load labels from the Swarm archive" in Settings.',
+    status: "live",
+    learns: {
+      private:
+        "Nothing, unless you load the archive. Then: your IP address and that you downloaded Selfnode's label archive (three public snapshot files, about 2.6 MB), once per session. Not anonymised: the anonymity network only carries JSON-RPC. Nothing about your own addresses. Files are used only if their SHA-256 matches the one recorded on Arkiv.",
+      verified: "The same: nothing unless you load the archive.",
+      mynode: "The same: nothing unless you load the archive.",
+    },
+  },
+  {
     name: "Worker download source",
     who: "The resolver URLs published in the specifier contract.",
     status: "live",
@@ -144,6 +155,11 @@ export const EXCEPTIONS: { title: string; detail: string }[] = [
     title: "Direct requests you approve",
     detail:
       "If the anonymity network is down, Selfnode shows an error. It never retries directly on its own. A direct request only happens when you confirm it for that one action, and the connection indicator turns amber and counts it.",
+  },
+  {
+    title: "The Swarm archive, if you load it",
+    detail:
+      "Off by default. Clicking \"Load labels from the Swarm archive\" in Settings downloads three public snapshot files directly from the bzz.limo gateway, which sees your IP. They're plain downloads, not RPC calls, so they aren't in the traffic counter. The files are used only if their SHA-256 matches the one recorded on Arkiv.",
   },
 ];
 
