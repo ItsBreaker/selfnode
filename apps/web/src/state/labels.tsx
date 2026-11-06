@@ -32,6 +32,8 @@ import { useSelfnode } from "./selfnode";
 export interface Mirror {
   label(chainId: number, address: string): Promise<MirrorLabel | null>;
   signature(selector: string): Promise<MirrorSig | null>;
+  /** The underlying reader (Arkiv through Anon-RPC), e.g. for browsing on the Data page. */
+  reader(): Promise<MirrorReader>;
 }
 function lazyMirror(
   make: () => Promise<MirrorReader>,
@@ -82,6 +84,7 @@ export function LabelsProvider({ children }: { children: ReactNode }) {
   // The archive (if loaded) answers first; anything it doesn't have goes to Arkiv as usual.
   const mirror = useMemo<Mirror>(
     () => ({
+      reader: reader.reader,
       label: async (c, a) => {
         const hit = indexRef.current?.label(c, a);
         return hit ? { ...hit, via: "swarm" } : reader.label(c, a);

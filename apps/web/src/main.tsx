@@ -22,6 +22,7 @@ const AddressView = lazy(() =>
   import("./pages/explore/AddressView").then((m) => ({ default: m.AddressView })),
 );
 const Swap = lazy(() => import("./pages/Swap").then((m) => ({ default: m.Swap })));
+const Data = lazy(() => import("./pages/Data").then((m) => ({ default: m.Data })));
 const Wallet = lazy(() => import("./pages/Wallet").then((m) => ({ default: m.Wallet })));
 const Styleguide = lazy(() =>
   import("./pages/Styleguide").then((m) => ({ default: m.Styleguide })),
@@ -88,6 +89,7 @@ const router = createBrowserRouter([
           { path: "/explore/tx/:hash", element: page(<TxView />) },
           { path: "/explore/block/:number", element: page(<BlockView />) },
           { path: "/swap", element: page(<Swap />) },
+          { path: "/data", element: page(<Data />) },
           { path: "/node", element: page(<Node />) },
           { path: "*", element: <NotBuilt title="Not found" /> },
         ],

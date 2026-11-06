@@ -9,9 +9,11 @@
  */
 import { createPublicClient } from "@arkiv-network/sdk";
 import { rabdi } from "@arkiv-network/sdk/chains";
-import { and, eq, or } from "@arkiv-network/sdk/query";
+import { and, asc, eq, gt, or } from "@arkiv-network/sdk/query";
+import { key as keyValue } from "@arkiv-network/sdk/schema";
 import { hexToString, http, isHex, type Address } from "viem";
 import type { SnapshotPointer } from "./archive.js";
+import { planBrowse, toBrowseRow, type BrowseQuery, type BrowseRow } from "./browse.js";
 import { LabelSchema, SigSchema, SnapshotSchema, TokenSchema } from "./schema.js";
 
 export interface MirrorProvenance {
@@ -57,6 +59,8 @@ const text = (v: { value: unknown } | undefined): string => {
 };
 type V = { value: string | number };
 
+const BROWSE_SCHEMA = { tokens: TokenSchema, labels: LabelSchema, sigs: SigSchema } as const;
+
 export class MirrorReader {
   readonly #client;
   readonly #owner: Address;
@@ -100,6 +104,61 @@ export class MirrorReader {
       `addr:${chainId}:${address.toLowerCase()}`,
       chainId,
     );
+  }
+
+  /**
+   * One page of the mirror for the Data page (Arkiv-side filters only), with
+   * the total number of matches. `cursor` is the last row's entity key.
+   */
+  async browsePage(
+    q: BrowseQuery,
+    cursor: string | null,
+    limit = 25,
+  ): Promise<{ rows: BrowseRow[]; next: string | null; total: number }> {
+    const plan = planBrowse(q);
+    const schema = BROWSE_SCHEMA[q.kind];
+    const where = cursor
+      ? and(plan.where, gt("$key", keyValue(cursor as `0x${string}`)))
+      : plan.where;
+    const [res, total] = await Promise.all([
+      this.#client
+        .select()
+        .from(schema)
+        .where(where as never)
+        .ownedBy(this.#owner)
+        .orderBy(asc("$key"))
+        .limit(limit)
+        .fetch(),
+      cursor
+        ? Promise.resolve(null)
+        : this.#client
+            .count()
+            .where(plan.where as never)
+            .ownedBy(this.#owner)
+            .fetch(),
+    ]);
+    const entities = res.entities as unknown as Record<string, unknown>[];
+    const rows = entities.map((e) => toBrowseRow(q.kind, e));
+    const last = entities[entities.length - 1];
+    return {
+      rows,
+      next: entities.length === limit && last ? String(last.$key) : null,
+      total: total === null ? -1 : Number(total),
+    };
+  }
+
+  /** Every row matching the Arkiv-side filter (for searches Arkiv can't do), 100 per request. */
+  async browseAll(q: BrowseQuery, onProgress?: (loaded: number) => void): Promise<BrowseRow[]> {
+    const out: BrowseRow[] = [];
+    let cursor: string | null = null;
+    for (let i = 0; i < 50; i++) {
+      const page = await this.browsePage({ ...q, text: "" }, cursor, 100);
+      out.push(...page.rows);
+      onProgress?.(out.length);
+      if (!page.next) break;
+      cursor = page.next;
+    }
+    return out;
   }
 
   /** The current Swarm snapshot pointers (one `selfnode-snapshot` entity per dataset). */
