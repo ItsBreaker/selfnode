@@ -13,6 +13,9 @@ allowBuilds:
   # workerd's postinstall only re-checks (or re-downloads) its platform binary,
   # which pnpm already installs as an optional dependency. Not needed; denied.
   workerd: false
+  # electron-winstaller (Squirrel.Windows) is pulled in by electron-builder, but
+  # we build an NSIS installer and never use Squirrel. Its script isn't needed.
+  electron-winstaller: false
 
 # Exact versions only.
 savePrefix: ""

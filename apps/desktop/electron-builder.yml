@@ -1,0 +1,35 @@
+# Desktop builds. Unsigned (no certificates); never published from here.
+# The node binaries are NOT bundled: the app downloads and verifies them at
+# runtime from the official releases pinned in node-manifest.json.
+appId: io.github.itsbreaker.selfnode
+productName: Selfnode
+copyright: Copyright (c) 2026 Selfnode contributors
+directories:
+  output: release
+files:
+  - dist/**
+  - "!dist/**/*.test.*"
+  - node-manifest.json
+  - package.json
+extraResources:
+  - from: ../web/dist
+    to: web
+asar: true
+npmRebuild: false
+publish: null
+mac:
+  target:
+    - target: dmg
+      arch: [universal]
+  category: public.app-category.finance
+  identity: null # unsigned build
+  hardenedRuntime: false
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+artifactName: "${productName}-${version}-${os}-${arch}.${ext}"
