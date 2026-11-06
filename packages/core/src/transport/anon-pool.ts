@@ -2,10 +2,11 @@
  * One long-lived Anon-RPC worker per anonymity network (the worker can reach
  * any chain: the chain is chosen by the RPC URL we pass to its fetch).
  */
+import { toFunctionSelector } from "viem";
 import { anonNetworks, type AnonNetworkId } from "../config/anon-rpc.js";
-import { publicRpc } from "../config/chains.js";
+import { publicRpc, type ChainKey } from "../config/chains.js";
 import { InsecureWorkerError } from "./errors.js";
-import { countRpcCalls, type TrafficCounter } from "./traffic.js";
+import { countRpcCalls, type Route, type TrafficCounter } from "./traffic.js";
 import type { AnonWorkerLike, Eip1193Like, WorkerStatus } from "./types.js";
 
 export interface WorkerInit {
@@ -35,6 +36,45 @@ export function createHarnessWorkerFactory(opts: { iframeUrl?: string } = {}): W
 /** Default factory: inline srcdoc bootstrap (fine without a strict CSP, e.g. in spikes). */
 export const harnessWorkerFactory: WorkerFactory = createHarnessWorkerFactory();
 
+/** The specifier's `workerHash()` call: its result is the keccak-256 the worker bundle must match. */
+export const WORKER_HASH_SELECTOR = toFunctionSelector("workerHash()");
+
+/** Remembers each network's worker code hash after a successful boot (trust on first use). */
+export interface WorkerPinStore {
+  get(id: AnonNetworkId): string | null;
+  set(id: AnonNetworkId, workerHash: string): void;
+}
+
+export interface WorkerCodeChange {
+  network: AnonNetworkId;
+  label: string;
+  previous: string;
+  current: string;
+}
+
+export class WorkerCodeChangedError extends Error {
+  override readonly name = "WorkerCodeChangedError";
+  constructor(readonly change: WorkerCodeChange) {
+    super(
+      `${change.label}'s code changed since you last used it (worker hash ${change.previous.slice(0, 10)}… → ${change.current.slice(0, 10)}…) and wasn't accepted`,
+    );
+  }
+}
+
+export interface BootstrapOptions {
+  pins?: WorkerPinStore;
+  /**
+   * Asked when a network's worker hash differs from the pinned one. Resolve
+   * true to accept the new code. Without it, a change is always refused.
+   */
+  onCodeChange?: (change: WorkerCodeChange) => Promise<boolean>;
+  /**
+   * Where to do the specifier read for `chain`: the user's own node if one is
+   * configured (My node mode), otherwise null for the public bootstrap RPC.
+   */
+  nodeFor?: (chain: ChainKey) => string | null;
+}
+
 /**
  * The bootstrap provider: a DIRECT, non-anonymised EIP-1193 shim used once per
  * worker to read the specifier contract. Every call is counted as "bootstrap".
@@ -43,12 +83,14 @@ export function bootstrapProvider(
   url: string,
   counter: TrafficCounter,
   fetchImpl: typeof fetch = fetch,
+  route: Route = "bootstrap",
+  inspect?: (method: string, params: unknown, result: unknown) => Promise<void>,
 ): Eip1193Like {
   let id = 0;
   return {
     async request({ method, params }) {
       const body = JSON.stringify({ jsonrpc: "2.0", id: ++id, method, params: params ?? [] });
-      counter.add("bootstrap", countRpcCalls(body));
+      counter.add(route, countRpcCalls(body));
       const res = await fetchImpl(url, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -56,6 +98,8 @@ export function bootstrapProvider(
       });
       const json = (await res.json()) as { result?: unknown; error?: { message: string } };
       if (json.error) throw new Error(`bootstrap ${method}: ${json.error.message}`);
+      // Lets the pool check the worker hash before the harness acts on it.
+      if (inspect) await inspect(method, params, json.result);
       return json.result;
     },
   };
@@ -76,6 +120,7 @@ export class AnonWorkerPool {
     private readonly counter: TrafficCounter,
     private readonly factory: WorkerFactory = harnessWorkerFactory,
     private readonly fetchImpl: typeof fetch = (...a) => fetch(...a),
+    private readonly bootstrap: BootstrapOptions = {},
   ) {}
 
   /** A fetch routed through the given network's worker, timed for the status display. */
@@ -134,11 +179,37 @@ export class AnonWorkerPool {
       latencyMs: null,
       worker: null as never,
     };
+    // The specifier read goes to the user's own node when there is one for that
+    // chain (it learns nothing new); otherwise to the disclosed public bootstrap RPC.
+    const nodeUrl = this.bootstrap.nodeFor?.(net.specifierChain) ?? null;
+    let seenHash: string | null = null;
+    const inspect = async (method: string, params: unknown, result: unknown) => {
+      const call = Array.isArray(params) ? (params[0] as { data?: string } | undefined) : undefined;
+      if (method !== "eth_call" || !call?.data?.toLowerCase().startsWith(WORKER_HASH_SELECTOR))
+        return;
+      if (typeof result !== "string" || result.length < 66) return; // the harness rejects it anyway
+      const current = `0x${result.slice(2, 66).toLowerCase()}`;
+      seenHash = current;
+      const previous = this.bootstrap.pins?.get(id) ?? null;
+      if (!previous || previous === current) return;
+      // The code changed: never accept silently.
+      const change: WorkerCodeChange = { network: id, label: net.label, previous, current };
+      const ok = this.bootstrap.onCodeChange
+        ? await this.bootstrap.onCodeChange(change).catch(() => false)
+        : false;
+      if (!ok) throw new WorkerCodeChangedError(change);
+    };
     entry.worker = Promise.resolve(
       this.factory({
         address: net.specifier,
         config: config ?? net.defaultConfig,
-        rpcProvider: bootstrapProvider(publicRpc(net.specifierChain), this.counter, this.fetchImpl),
+        rpcProvider: bootstrapProvider(
+          nodeUrl ?? publicRpc(net.specifierChain),
+          this.counter,
+          this.fetchImpl,
+          nodeUrl ? "my-node" : "bootstrap",
+          inspect,
+        ),
       }),
     );
     entry.worker
@@ -146,6 +217,8 @@ export class AnonWorkerPool {
       .then(
         () => {
           entry.status = { state: "ready", readyMs: Date.now() - started };
+          // Pin the hash only once the worker actually booted with it.
+          if (seenHash) this.bootstrap.pins?.set(id, seenHash);
           this.#emit();
         },
         (e: unknown) => {

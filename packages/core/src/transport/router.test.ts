@@ -113,7 +113,9 @@ describe("TransportRouter", () => {
     expect(direct.urls.some((u) => u.startsWith("http://127.0.0.1:8545"))).toBe(true);
     expect(w.calls.flatMap((c) => c.methods)).toEqual(["eth_sendRawTransaction"]);
     const s = router.counter.snapshot();
-    expect(s["my-node"]).toBe(1);
+    // The read, plus the specifier (bootstrap) read, which now also goes to the node.
+    expect(s["my-node"]).toBe(2);
+    expect(s.bootstrap).toBe(0);
     expect(s["anon-rpc"]).toBe(1);
   });
 
@@ -161,5 +163,144 @@ describe("TransportRouter", () => {
     await client.getBlockNumber({ cacheTime: 0 });
     expect(router.counter.snapshot()["direct-approved"]).toBe(1);
     expect(router.counter.anonShare()).toBe(0);
+  });
+});
+
+// --- Worker-hash pinning and the bootstrap route -----------------------------
+import { WORKER_HASH_SELECTOR, WorkerCodeChangedError, type WorkerPinStore } from "./anon-pool.js";
+
+const H1 = `0x${"11".repeat(32)}`;
+const H2 = `0x${"22".repeat(32)}`;
+/** A specifier that answers workerHash() with `hash`, recording which URL was asked. */
+function specifierFetch(hash: () => string) {
+  const urls: string[] = [];
+  const fn = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    urls.push(String(input));
+    const req = JSON.parse(String(init?.body)) as { id: number };
+    return new Response(JSON.stringify({ jsonrpc: "2.0", id: req.id, result: hash() }));
+  }) as unknown as typeof fetch;
+  return { fn, urls };
+}
+/** Like the real harness: reads workerHash() first and fails to boot if that throws. */
+const hashReadingFactory = vi.fn(async (init: WorkerInit): Promise<AnonWorkerLike> => {
+  await init.rpcProvider.request({
+    method: "eth_call",
+    params: [{ to: init.address, data: WORKER_HASH_SELECTOR }, "latest"],
+  });
+  return { ready: Promise.resolve(), fetch: async (_i, i2) => rpcReply(i2?.body), close: () => {} };
+});
+const memoryPins = (
+  init: Record<string, string> = {},
+): WorkerPinStore & { all: Record<string, string> } => {
+  const all: Record<string, string> = { ...init };
+  return { all, get: (id) => all[id] ?? null, set: (id, h) => void (all[id] = h) };
+};
+const boot = async (router: TransportRouter, id: "nox" | "nym" = "nox") => {
+  router.pool.fetchFor(id);
+  for (let i = 0; i < 50; i++) {
+    const s = router.pool.status(id).status;
+    if (s.state === "ready" || s.state === "failed") return s;
+    await new Promise((r) => setTimeout(r, 5));
+  }
+  throw new Error("worker never settled");
+};
+
+describe("Anon-RPC worker code pinning", () => {
+  it("pins the worker hash after the first successful boot", async () => {
+    const pins = memoryPins();
+    const router = new TransportRouter(base, {
+      workerFactory: hashReadingFactory,
+      fetch: specifierFetch(() => H1).fn,
+      pins,
+    });
+    expect((await boot(router)).state).toBe("ready");
+    expect(pins.all.nox).toBe(H1);
+  });
+
+  it("refuses changed code when nobody accepts it, and keeps the old pin", async () => {
+    const pins = memoryPins({ nox: H1 });
+    const router = new TransportRouter(base, {
+      workerFactory: hashReadingFactory,
+      fetch: specifierFetch(() => H2).fn,
+      pins,
+    });
+    const s = await boot(router);
+    expect(s.state).toBe("failed");
+    expect(s.state === "failed" && s.error).toMatch(/code changed since you last used it/);
+    expect(pins.all.nox).toBe(H1);
+    // No fallback: reads fail rather than going anywhere else.
+    const client = createPublicClient({ transport: router.transport() });
+    await expect(client.getBlockNumber({ cacheTime: 0 })).rejects.toThrow();
+  });
+
+  it("asks the user, and only re-pins when they accept", async () => {
+    for (const accept of [false, true]) {
+      const pins = memoryPins({ nox: H1 });
+      const ask = vi.fn(async () => accept);
+      const router = new TransportRouter(base, {
+        workerFactory: hashReadingFactory,
+        fetch: specifierFetch(() => H2).fn,
+        pins,
+        onWorkerCodeChange: ask,
+      });
+      expect((await boot(router)).state).toBe(accept ? "ready" : "failed");
+      expect(ask).toHaveBeenCalledWith(
+        expect.objectContaining({ network: "nox", previous: H1, current: H2 }),
+      );
+      expect(pins.all.nox).toBe(accept ? H2 : H1);
+    }
+  });
+
+  it("doesn't ask when the hash is unchanged", async () => {
+    const ask = vi.fn(async () => true);
+    const router = new TransportRouter(base, {
+      workerFactory: hashReadingFactory,
+      fetch: specifierFetch(() => H1).fn,
+      pins: memoryPins({ nox: H1 }),
+      onWorkerCodeChange: ask,
+    });
+    expect((await boot(router)).state).toBe("ready");
+    expect(ask).not.toHaveBeenCalled();
+  });
+
+  it("exports the error type for the UI", () => {
+    expect(
+      new WorkerCodeChangedError({ network: "nox", label: "Nox", previous: H1, current: H2 }).name,
+    ).toBe("WorkerCodeChangedError");
+  });
+});
+
+describe("bootstrap read route", () => {
+  it("goes to the user's own node in My node mode (Nox's specifier is on Sepolia)", async () => {
+    const spec = specifierFetch(() => H1);
+    const router = new TransportRouter(
+      { ...base, mode: "mynode", myNodeUrl: { sepolia: "http://127.0.0.1:8545" } },
+      { workerFactory: hashReadingFactory, fetch: spec.fn },
+    );
+    await boot(router);
+    expect(spec.urls).toEqual(["http://127.0.0.1:8545"]);
+    const s = router.counter.snapshot();
+    expect(s.bootstrap).toBe(0);
+    expect(s["my-node"]).toBe(1);
+  });
+
+  it("uses the public bootstrap RPC in Private mode, or when the node is on another chain", async () => {
+    const a = specifierFetch(() => H1);
+    await boot(new TransportRouter(base, { workerFactory: hashReadingFactory, fetch: a.fn }));
+    expect(a.urls[0]).toContain("sepolia");
+    // Nym's specifier is on Ethereum; a Sepolia-only node can't answer it.
+    const b = specifierFetch(() => H1);
+    const r = new TransportRouter(
+      {
+        ...base,
+        mode: "mynode",
+        anonNetwork: "nym",
+        myNodeUrl: { sepolia: "http://127.0.0.1:8545" },
+      },
+      { workerFactory: hashReadingFactory, fetch: b.fn },
+    );
+    await boot(r, "nym");
+    expect(b.urls[0]).not.toContain("127.0.0.1");
+    expect(r.counter.snapshot().bootstrap).toBe(1);
   });
 });

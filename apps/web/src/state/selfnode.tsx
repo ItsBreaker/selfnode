@@ -30,6 +30,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPublicClient, type PublicClient } from "viem";
+import { askWorkerCodeChange, localWorkerPins } from "./workerPins";
 
 const SETTINGS_KEY = "selfnode:transport";
 const TOTALS_KEY = "selfnode:traffic-total";
@@ -115,6 +116,9 @@ export function SelfnodeProvider({ children }: { children: ReactNode }) {
     () =>
       new TransportRouter(loadSettings(), {
         workerFactory: createHarnessWorkerFactory({ iframeUrl: "/anon-rpc-iframe.html" }),
+        // Pin each network's worker hash; ask before running changed code.
+        pins: localWorkerPins,
+        onWorkerCodeChange: askWorkerCodeChange,
       }),
   );
   const [settings, setSettingsState] = useState<TransportSettings>(router.settings);

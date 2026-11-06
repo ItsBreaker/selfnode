@@ -11,7 +11,12 @@ import { createTransport, custom, http, type EIP1193RequestFn, type Transport } 
 import { anonNetworks } from "../config/anon-rpc.js";
 import { publicRpc, type ChainKey } from "../config/chains.js";
 import { heliosUpstreams } from "../config/helios.js";
-import { AnonWorkerPool, type WorkerFactory } from "./anon-pool.js";
+import {
+  AnonWorkerPool,
+  type WorkerCodeChange,
+  type WorkerFactory,
+  type WorkerPinStore,
+} from "./anon-pool.js";
 import { TransportUnavailableError } from "./errors.js";
 import { heliosProviderFactory, type HeliosFactory } from "./helios.js";
 import { HealthTracker, trackedFetch } from "./health.js";
@@ -26,6 +31,9 @@ export interface RouterDeps {
   workerFactory?: WorkerFactory;
   heliosFactory?: HeliosFactory;
   fetch?: typeof fetch;
+  /** Worker-hash pinning and the user's decision when it changes. */
+  pins?: WorkerPinStore;
+  onWorkerCodeChange?: (change: WorkerCodeChange) => Promise<boolean>;
 }
 
 export class TransportRouter {
@@ -41,7 +49,13 @@ export class TransportRouter {
   constructor(settings: TransportSettings, deps: RouterDeps = {}) {
     this.counter = deps.counter ?? new TrafficCounter();
     this.#fetch = deps.fetch ?? ((...a) => fetch(...a));
-    this.pool = new AnonWorkerPool(this.counter, deps.workerFactory, this.#fetch);
+    this.pool = new AnonWorkerPool(this.counter, deps.workerFactory, this.#fetch, {
+      ...(deps.pins ? { pins: deps.pins } : {}),
+      ...(deps.onWorkerCodeChange ? { onCodeChange: deps.onWorkerCodeChange } : {}),
+      // In My node mode, the specifier read goes to the user's node for that chain.
+      nodeFor: (chain) =>
+        this.#settings.mode === "mynode" ? (this.#settings.myNodeUrl?.[chain] ?? null) : null,
+    });
     this.#heliosFactory = deps.heliosFactory ?? heliosProviderFactory(this.counter, this.#fetch);
     this.#settings = settings;
   }
