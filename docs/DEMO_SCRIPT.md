@@ -26,3 +26,20 @@ fund <address> 0.004`.
 **If something is slow:** Nox requests take 1–3 s, so pre-warm the pages you'll
 show. If Nox is unavailable, say so. The app shows "Unavailable" and won't fall
 back, which is the point.
+
+## Desktop add-on (about 45 seconds, if there's time)
+
+**Setup:**
+
+- Install the [v0.1.0-hackathon](https://github.com/ItsBreaker/selfnode/releases/tag/v0.1.0-hackathon)
+  build on an Apple Silicon Mac (right-click → Open the first time).
+- Start the node at least an hour before recording, so it has peers and visible
+  sync progress. If it's fully synced, even better: the app will already have
+  switched to it.
+
+| Show                                                               | Say                                                                                                                                                                                     |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The **Node** page: pre-flight panel                                | "The desktop app can run your own pruned Sepolia node. Before anything starts, it checks your disk against Nethermind's and Nimbus's own published sizes, and keeps 50 GB or 10% free." |
+| The **Logs** panel (Selfnode tab)                                  | "Both clients come only from their official GitHub releases, verified against pinned checksums before they run. Nimbus is checked twice. Nothing updates itself."                       |
+| The **Status** panel: peers, slot, ETA                             | "Nethermind and Nimbus are both minority clients, which is good for client diversity. RPC and Engine ports are bound to localhost only."                                                |
+| If synced: the mode indicator showing **My node · 127.0.0.1:8545** | "Once synced, Selfnode reads from your own node. No RPC provider sees anything. Transactions still go out through the anonymity network, so your node's peers don't learn your IP."     |
