@@ -9,9 +9,14 @@
  */
 import { app, BrowserWindow, dialog, session, shell } from "electron";
 import { join } from "node:path";
+import { setupIpc } from "./ipc";
+import type { NodeManager } from "./node/manager";
 import { handleScheme, ORIGIN, registerScheme } from "./protocol";
 
+app.setName("Selfnode"); // userData → .../Selfnode
 registerScheme();
+let manager: NodeManager | null = null;
+let quitting = false;
 const headless = process.env.SELFNODE_HEADLESS === "1"; // automation: hidden window
 const webRoot = app.isPackaged
   ? join(process.resourcesPath, "web")
@@ -63,6 +68,7 @@ void app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false));
   session.defaultSession.setPermissionCheckHandler(() => false);
   handleScheme(webRoot);
+  manager = setupIpc(app.isPackaged ? app.getAppPath() : join(__dirname, ".."));
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -72,6 +78,14 @@ void app.whenReady().then(() => {
 app.on("web-contents-created", (_e, contents) => {
   // Block webviews.
   contents.on("will-attach-webview", (e) => e.preventDefault());
+});
+
+// Clean shutdown: stop the node's processes before the app exits.
+app.on("before-quit", (e) => {
+  if (quitting || !manager?.running) return;
+  e.preventDefault();
+  quitting = true;
+  void manager.stop().finally(() => app.quit());
 });
 
 app.on("window-all-closed", () => {
