@@ -96,6 +96,16 @@ const router = createBrowserRouter([
   },
 ]);
 
+// After a deploy, an already-open tab may ask for chunk files that no longer
+// exist (the static host answers with index.html). Reload once to pick up the
+// new build instead of failing; the session flag prevents a reload loop.
+window.addEventListener("vite:preloadError", (e) => {
+  if (sessionStorage.getItem("selfnode:reloaded-for-new-build")) return;
+  sessionStorage.setItem("selfnode:reloaded-for-new-build", "1");
+  e.preventDefault();
+  location.reload();
+});
+
 const el = document.getElementById("root");
 if (!el) throw new Error("#root missing");
 createRoot(el).render(
