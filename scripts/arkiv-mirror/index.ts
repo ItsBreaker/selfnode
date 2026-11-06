@@ -204,13 +204,22 @@ try {
 
   if (notices.length) {
     console.log("\nDataset notices (licence text on Arkiv)");
-    reports.push(
-      await sync("dataset notices", DatasetSchema as never, notices, {
-        dryRun,
-        minBalanceWei,
-        maxSpendWei,
-      }),
-    );
+    // sync() scopes existing entities by source, so sync each source's notices
+    // separately (MyEtherWallet has two: tokens and labels). Mixing sources made
+    // every run re-create the other sources' notices.
+    const bySource = new Map<string, Planned[]>();
+    for (const n of notices) {
+      const src = String(n.values.source);
+      bySource.set(src, [...(bySource.get(src) ?? []), n]);
+    }
+    for (const [src, rows] of bySource)
+      reports.push(
+        await sync(`dataset notices (${src})`, DatasetSchema as never, rows, {
+          dryRun,
+          minBalanceWei,
+          maxSpendWei,
+        }),
+      );
   }
 
   const end = await reader.getBalance({ address: account.address });
