@@ -35,6 +35,7 @@ import { SelfnodeProvider } from "./state/selfnode";
 import { WalletProvider } from "./state/wallet";
 import { useTheme } from "./theme";
 import { TooltipProvider } from "./ui/Tooltip";
+import { FrameGuard } from "./app/FrameGuard";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 10_000, refetchOnWindowFocus: false } },
@@ -83,12 +84,26 @@ const router = createBrowserRouter([
           { path: "/", element: <Overview /> },
           { path: "/settings", element: page(<Settings />) },
           { path: "/privacy", element: page(<Privacy />) },
-          { path: "/wallet", element: page(<Wallet />) },
+          {
+            path: "/wallet",
+            element: page(
+              <FrameGuard title="Wallet">
+                <Wallet />
+              </FrameGuard>,
+            ),
+          },
           { path: "/explore", element: page(<Explore />) },
           { path: "/explore/address/:address", element: page(<AddressView />) },
           { path: "/explore/tx/:hash", element: page(<TxView />) },
           { path: "/explore/block/:number", element: page(<BlockView />) },
-          { path: "/swap", element: page(<Swap />) },
+          {
+            path: "/swap",
+            element: page(
+              <FrameGuard title="Swap">
+                <Swap />
+              </FrameGuard>,
+            ),
+          },
           { path: "/data", element: page(<Data />) },
           { path: "/node", element: page(<Node />) },
           { path: "*", element: <NotBuilt title="Not found" /> },
