@@ -5,6 +5,13 @@
  *
  * usage: pnpm --filter @selfnode/scripts arkiv:mirror [--dry-run] [--only tokens,labels,sigs]
  *          [--max-sigs 5000] [--sample-blocks 300] [--reserve 2] [--max-spend 5]
+ *
+ * Swarm snapshots (see /arkiv/swarm.md):
+ *   --snapshot     export each dataset from Arkiv, upload it to Swarm, write its
+ *                  selfnode-snapshot entity
+ *   --from-swarm   rebuild/patch the Arkiv entities from the Swarm snapshots,
+ *                  verified against the snapshot entities' SHA-256
+ *   [--swarm-gateways https://bzz.limo,https://api.gateway.ethswarm.org]
  */
 import {
   DatasetSchema,
@@ -29,6 +36,8 @@ import {
   type Dataset,
 } from "./sources.js";
 import { hashContent, sync, type Planned, type SyncReport, type Values } from "./sync.js";
+import { runFromSwarm, runSnapshot } from "./snapshot-run.js";
+import type { DatasetId } from "./snapshot.js";
 import { sampleUsage } from "./usage.js";
 
 const args = process.argv.slice(2);
@@ -67,6 +76,23 @@ try {
   console.log(
     `Arkiv mirror ${dryRun ? "(dry run) " : ""}as ${account.address}, balance ${formatEther(start)} tGLM, reserve ${formatEther(minBalanceWei)}`,
   );
+  if (flag("snapshot") || flag("from-swarm")) {
+    const datasets = [...only].filter((d): d is DatasetId =>
+      ["tokens", "labels", "sigs"].includes(d),
+    );
+    const gw = opt("swarm-gateways", "");
+    const runOpts = {
+      dryRun,
+      minBalanceWei,
+      maxSpendWei,
+      ...(gw ? { gateways: gw.split(",") } : {}),
+    };
+    if (flag("snapshot")) await runSnapshot(datasets, runOpts);
+    else await runFromSwarm(datasets, runOpts);
+    const end = await reader.getBalance({ address: account.address });
+    console.log(`\nSpent ${formatEther(start - end)} tGLM; balance ${formatEther(end)} tGLM.`);
+    process.exit(0);
+  }
   const commits = {
     mew: opt("mew-commit", await headCommit(SOURCES.mew.repo)),
     tokens: opt("tokens-commit", await headCommit(SOURCES.tokens.repo)),
