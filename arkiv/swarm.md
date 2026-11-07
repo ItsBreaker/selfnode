@@ -291,7 +291,7 @@ window.self`) and show "Open Selfnode directly" instead. Checked by framing
 
 ## Demo video
 
-Swarm segment at **[TIMESTAMP: to be added after recording]**.
+Swarm segment at **2:40–3:20**.
 
 ## Friction notes
 
