@@ -35,19 +35,19 @@ submission images in [`docs/submission/`](docs/submission/).
 
 ## What works today
 
-| Feature                                                                                                                                                                                                                           | Status                                                                                   |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| **Private mode** (default): all reads and every broadcast go through [Anon-RPC](https://github.com/ethereum/anon-rpc) (Nox by default; Nym and Tor selectable)                                                                    | ✅ live, tested in-browser                                                               |
-| **Verified mode**: [Helios](https://github.com/a16z/helios) light client checks answers against consensus (mainnet; Sepolia needs your own consensus endpoint)                                                                    | ✅ live                                                                                  |
-| **My node mode**: reads from your own node; broadcasts still go through Anon-RPC                                                                                                                                                  | ✅ live                                                                                  |
-| **Wallet**: create/import, scrypt + AES-GCM vault, auto-lock, multiple wallets and accounts from one phrase, Sepolia sends with a plain-English pre-sign preview, Max for ETH, Swap from the wallet, password-gated phrase reveal | ✅ live, end-to-end on Sepolia                                                           |
-| **Explorer**: address, transaction and block views, ENS search, ⌘K, labels and function names from **Arkiv**                                                                                                                      | ✅ live                                                                                  |
-| **Swap**: Uniswap v4 on Sepolia, quoted on-chain, Universal Router + Permit2                                                                                                                                                      | ✅ live, end-to-end on Sepolia                                                           |
-| **Arkiv mirror**: open-licensed labels, scam list, tokens and function names, re-runnable importer                                                                                                                                | ✅ 3,349 entities on Rabdi (+3 snapshot pointers)                                        |
-| **Data** page: browse the Arkiv mirror without a wallet (search, source + licence + commit per row, copy-paste query)                                                                                                             | ✅ live at [/data](https://selfnode.jhfe.workers.dev/data)                               |
-| **Privacy report** page: what every third party learns, per mode                                                                                                                                                                  | ✅ live                                                                                  |
-| **Desktop app** (Electron, `app://`): same UI plus a node manager that downloads, verifies and runs a pruned Sepolia node (Nethermind + Nimbus)                                                                                   | ✅ macOS Apple Silicon and Windows x64 (graceful shutdown tested in CI); unsigned builds |
-| **Swarm snapshots** of the mirrored datasets, referenced from Arkiv (`swarmRef` + SHA-256), and `--from-swarm` rebuild ([swarm.md](arkiv/swarm.md))                                                                               | ✅ 3 snapshots via the bzz.limo public gateway; opt-in in-app archive                    |
+| Feature                                                                                                                                                                                                                                                                                                                               | Status                                                                                                                  |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **Private mode** (default): all reads and every broadcast go through [Anon-RPC](https://github.com/ethereum/anon-rpc) (Nox by default; Nym and Tor selectable). Automatic failover to the next anonymity network (never to direct), retries while a network connects, switch back when it recovers, and a per-network Test connection | ✅ live, tested in-browser                                                                                              |
+| **Verified mode**: [Helios](https://github.com/a16z/helios) light client checks answers against consensus (mainnet; Sepolia needs your own consensus endpoint)                                                                                                                                                                        | ✅ live                                                                                                                 |
+| **My node mode**: reads from your own node; broadcasts still go through Anon-RPC                                                                                                                                                                                                                                                      | ✅ live                                                                                                                 |
+| **Wallet**: create/import, scrypt + AES-GCM vault, auto-lock, multiple wallets and accounts from one phrase, Sepolia sends with a plain-English pre-sign preview, Max for ETH, Swap from the wallet, password-gated phrase reveal                                                                                                     | ✅ live, end-to-end on Sepolia                                                                                          |
+| **Explorer**: live latest blocks and transactions, address activity over the last 10/25/100 blocks, address, transaction and block views, ENS names and search, ⌘K, labels and function names from **Arkiv**                                                                                                                          | ✅ live                                                                                                                 |
+| **Swap**: Uniswap v4 on Sepolia, quoted on-chain, Universal Router + Permit2                                                                                                                                                                                                                                                          | ✅ live, end-to-end on Sepolia                                                                                          |
+| **Arkiv mirror**: open-licensed labels, scam list, tokens and function names, re-runnable importer                                                                                                                                                                                                                                    | ✅ 3,349 entities on Rabdi (+3 snapshot pointers)                                                                       |
+| **Data** page: browse the Arkiv mirror without a wallet (search, source + licence + commit per row, copy-paste query)                                                                                                                                                                                                                 | ✅ live at [/data](https://selfnode.jhfe.workers.dev/data)                                                              |
+| **Privacy report** page: what every third party learns, per mode                                                                                                                                                                                                                                                                      | ✅ live                                                                                                                 |
+| **Desktop app** (Electron, `app://`): same UI plus a node manager that downloads, verifies and runs a pruned Sepolia node (Nethermind + Nimbus)                                                                                                                                                                                       | ✅ macOS Apple Silicon and Windows x64 (graceful shutdown tested in CI); unsigned builds                                |
+| **Swarm snapshots** of the mirrored datasets, referenced from Arkiv (`swarmRef` + SHA-256), `--from-swarm` rebuild, and a Swarm copy of the web app ([swarm.md](arkiv/swarm.md))                                                                                                                                                      | ✅ 3 snapshots + the web app, uploaded through our own Bee light node with our own postage batch; opt-in in-app archive |
 
 Signing is **Sepolia-only** in this build. Mainnet is read-only, and that's
 enforced in [`signer.ts`](packages/core/src/wallet/signer.ts) with tests.
@@ -140,9 +140,21 @@ Deploy with `pnpm --filter @selfnode/web deploy:cf`.
   action, and the connection indicator then turns amber and counts it.
 - `eth_sendRawTransaction` always goes through Anon-RPC, **in every mode**. A node,
   or Helios's upstream, broadcasting directly would reveal your IP.
+- **Failover between anonymity networks, never to direct.** If Nox fails (no
+  exits, a worker that won't start, or no answer in time), the router switches to
+  Nym (or Tor, if a gateway is configured) and says so. Reads are retried on the
+  new network; broadcasts aren't (a signed transaction may already be out). It
+  checks Nox again after 1, 2, then every 4 minutes and switches back when it
+  answers. While a network makes its first connection (Nox gets 60 s, Nym 180 s),
+  failed reads are retried after 1 s and 3 s, shown as "retrying (attempt n of
+  3)". The connection menu has **Test connection** (one request per network) and
+  "Try Nox again". Details: [DECISIONS.md](docs/DECISIONS.md).
+- **Worker-code pinning:** each network's worker hash is pinned on first use; if
+  it changes, Selfnode stops and asks before running the new code.
 - Measured worker performance (Phase 0, [`docs/DECISIONS.md`](docs/DECISIONS.md)):
-  Nox ready in about 3.5 s, then about 1–3 s per request; Nym ready in 8–16 s.
-  Tor's public demo gateway was unreachable.
+  Nox ready in about 3.5 s, then about 1–3 s per request; Nym ready in 8–16 s
+  (its first answer took one to three minutes on some evenings of the
+  hackathon). Tor's public demo gateway was unreachable.
 
 ### Traffic share
 
@@ -278,8 +290,11 @@ about flagged recipients before you sign, and decode calldata.
   pointed to by a `selfnode-snapshot` entity (`swarmRef`, `sha256`). `--snapshot`
   uploads them; `--from-swarm` rebuilds Arkiv from them after verifying the
   hash. In the app, Settings → "Load labels from the Swarm archive" (opt-in;
-  the gateway sees your IP) loads them in one go, checked against Arkiv.
-  Details, references and friction: [swarm.md](arkiv/swarm.md).
+  the gateway sees your IP) loads them in one go, checked against Arkiv. The
+  current snapshots and the Swarm copy of the web app were uploaded through our
+  own Bee light node (Nook, Swarm mainnet) with our own postage batch, provided
+  by the Swarm Foundation via a Devcon 8 Mumbai gift code (TTL and expiry in
+  swarm.md). Details, references and friction: [swarm.md](arkiv/swarm.md).
 - **Docs:** [schema](arkiv/schema.md) · [data quality](arkiv/data-quality.md) ·
   [reach](arkiv/reach.md) · [why Arkiv](arkiv/why-arkiv.md) ·
   [friction](arkiv/friction.md) · [Swarm](arkiv/swarm.md)
